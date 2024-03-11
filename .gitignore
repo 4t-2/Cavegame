@@ -1,0 +1,67 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.pdb
+*.raddbg
+*.ilk
+*.out
+*.app
+
+# AGL library
+lib/AGL
+
+# cmake
+build/*
+
+#ext deps
+dependents/*
+
+*.xcf
+.cache
+debug
+release
+
+*.png
+bin/plot/*
+!bin/plot/img.p
+bin/img/border.png.bak
+lib/PHY
+lib/IN
+simbeta6win32.zip
+.vs
+.vscode
+bin/EvolutionSimulator
+bin/READ.txt
+bin/creature (copy 1).vt
+bin/creature.vt
+
+lib/stb_image.h
+lib/stb_truetype.h
+bin/CaveGame
