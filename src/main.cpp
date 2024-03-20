@@ -11,6 +11,15 @@
 #include <string>
 #include <thread>
 
+#define WALKVELPERTICK	 (0.2 / 3.)
+#define SNEAKVELPERTICK	 0.03
+#define SPRINTVELPERTICK 0.13
+#define BLOCKFRICTION	 std::pow(0.546, 1. / .3)
+#define FLYVELPERTICK	 (0.1 / 3.)
+#define AIRFRICTION		 std::pow(0.75, 1. / 3.)
+
+#define BASESPEED WALKVELPERTICK
+
 class Listener
 {
 	private:
@@ -65,6 +74,74 @@ agl::Vec<float, 2> getCursorScenePosition(agl::Vec<float, 2> cursorWinPos, agl::
 	return ((cursorWinPos - (winSize * .5)) * winScale) + cameraPos;
 }
 
+class Player
+{
+	public:
+		agl::Vec<float, 3> pos = {0, -3, -10};
+		agl::Vec<float, 3> rot = {0, 0, 0};
+		agl::Vec<float, 3> vel = {0, 0, 0};
+
+		float friction = AIRFRICTION;
+
+		bool sneaking;
+		bool sprinting;
+
+		void update()
+		{
+			pos += vel;
+			vel *= friction;
+		}
+};
+
+class World
+{
+	public:
+		std::vector<std::vector<std::vector<bool>>> blocks;
+		agl::Vec<int, 3>							size;
+
+		World(agl::Vec<int, 3> size) : size(size)
+		{
+			blocks.resize(size.x);
+
+			for (auto &b : blocks)
+			{
+				b.resize(size.y);
+				for (auto &b : b)
+				{
+					b.resize(size.z);
+				}
+			}
+		}
+};
+
+void hideCursor(agl::RenderWindow &window)
+{
+	Cursor		invisibleCursor;
+	Pixmap		bitmapNoData;
+	XColor		black;
+	static char noData[] = {0, 0, 0, 0, 0, 0, 0, 0};
+	black.red = black.green = black.blue = 0;
+
+	bitmapNoData	= XCreateBitmapFromData(window.baseWindow.dpy, window.baseWindow.win, noData, 8, 8);
+	invisibleCursor = XCreatePixmapCursor(window.baseWindow.dpy, bitmapNoData, bitmapNoData, &black, &black, 0, 0);
+	XDefineCursor(window.baseWindow.dpy, window.baseWindow.win, invisibleCursor);
+	XFreeCursor(window.baseWindow.dpy, invisibleCursor);
+	XFreePixmap(window.baseWindow.dpy, bitmapNoData);
+}
+
+void movePlayer(Player &player, agl::Vec<float, 3> acc, float vel)
+{
+	acc *= 0.98;
+
+	acc *= vel;
+
+	player.vel += acc;
+
+	player.update();
+
+	std::cout << player.vel.length() * 60 << '\n';
+}
+
 int main()
 {
 	printf("Starting AGL\n");
@@ -76,10 +153,8 @@ int main()
 
 	agl::Vec<float, 2> windowSize;
 
-	glDisable(GL_DEPTH_TEST);
-
-	// window.GLEnable(GL_ALPHA_TEST);
-	// glAlphaFunc(GL_GREATER, 0.1f);
+	window.GLEnable(GL_ALPHA_TEST);
+	glAlphaFunc(GL_GREATER, 0.1f);
 
 	window.setSwapInterval(1);
 
@@ -97,10 +172,6 @@ int main()
 
 	agl::Shader menuShader;
 	menuShader.loadFromFile("./shader/menuVert.glsl", "./shader/menu.glsl");
-
-	agl::Camera camera;
-	camera.setPerspectiveProjection(90, 1920. / 1080, 0.1, 100);
-	camera.setView({50, 50, 50}, {0, 0, 0}, {0, 1, 0});
 
 	agl::Texture foodTexture;
 	foodTexture.loadFromFile("./img/food.png");
@@ -134,10 +205,47 @@ int main()
 	blankRect.setRotation({0, 0, 0});
 	blankRect.setColor(agl::Color::Red);
 
+	World world({20, 5, 5});
+
+	world.blocks[3 + 5][3][3] = true;
+	world.blocks[3 + 5][2][3] = true;
+	world.blocks[3 + 5][4][3] = true;
+	world.blocks[2 + 5][2][3] = true;
+	world.blocks[4 + 5][2][3] = true;
+	/*
+	 *   # #
+	 *   # #
+	 * #     #
+	 *  #####
+	 */
+	world.blocks[2][4][0] = true;
+	world.blocks[2][3][0] = true;
+	world.blocks[4][4][0] = true;
+	world.blocks[4][3][0] = true;
+
+	world.blocks[0][1][0] = true;
+	world.blocks[1][0][0] = true;
+	world.blocks[2][0][0] = true;
+	world.blocks[3][0][0] = true;
+	world.blocks[4][0][0] = true;
+	world.blocks[5][0][0] = true;
+	world.blocks[6][1][0] = true;
+
+	agl::Cuboid cube;
+	cube.setSize({1, 1, 1});
+	cube.setPosition({0, 0, 0});
+	cube.setRotation({0, 0, 0});
+	cube.setTexture(&blank);
+	cube.setColor(agl::Color::White);
+
 	window.getShaderUniforms(simpleShader);
 	simpleShader.use();
 
-	window.updateMvp(camera);
+	agl::Vec<int, 3> selected;
+
+	Player player;
+
+	hideCursor(window);
 
 	while (!event.windowClose())
 	{
@@ -146,11 +254,119 @@ int main()
 
 		event.poll();
 
+		windowSize = window.getState().size;
+
 		window.clear();
 
-		window.drawShape(blankRect);
+		for (int x = 0; x < world.blocks.size(); x++)
+		{
+
+			for (int y = 0; y < world.blocks[x].size(); y++)
+			{
+				for (int z = 0; z < world.blocks[x][y].size(); z++)
+				{
+					if (world.blocks[x][y][z])
+					{
+						cube.setPosition({static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)});
+						cube.setColor({(unsigned char)(255 * ((float)x / world.size.x)),
+									   (unsigned char)(255 * ((float)y / world.size.y)),
+									   (unsigned char)(255 * ((float)z / world.size.z))});
+
+						if (selected == agl::Vec{x, y, z})
+						{
+							cube.setColor(agl::Color::Green);
+						}
+						window.drawShape(cube);
+					}
+				}
+			}
+		}
 
 		window.display();
+
+		static int frame = 0;
+		frame++;
+
+		static agl::Vec<int, 2> oldMousePos = event.getPointerWindowPosition();
+
+		agl::Vec<int, 2> mousePos = event.getPointerWindowPosition();
+
+		agl::Vec<int, 2> deltaPos = mousePos - oldMousePos;
+
+		constexpr float sensitivity = .5;
+
+		agl::Vec<float, 2> rotDelta =
+			(agl::Vec<float, 3>(deltaPos.y, -deltaPos.x, 0) * 1.2 * std::pow(sensitivity * 0.6 + 0.2, 3));
+
+		player.rot += rotDelta * PI / 180;
+
+		if (player.rot.x > PI / 2)
+		{
+			player.rot.x = PI / 2;
+		}
+		else if (player.rot.x < -PI / 2)
+		{
+
+			player.rot.x = -PI / 2;
+		}
+
+		oldMousePos = mousePos;
+
+		{
+			Window win = 0;
+			int	   i   = 0;
+			XGetInputFocus(window.baseWindow.dpy, &win, &i);
+			if (win == window.baseWindow.win)
+			{
+				if ((mousePos - (windowSize / 2)).length() > 500)
+				{
+					XWarpPointer(window.baseWindow.dpy, None, window.baseWindow.win, 0, 0, 0, 0, windowSize.x / 2,
+								 windowSize.y / 2);
+
+					oldMousePos = windowSize / 2;
+				}
+			}
+		}
+
+		{
+			agl::Vec<float, 3> acc;
+			if (event.isKeyPressed(agl::Key::W))
+			{
+				acc.x += sin(player.rot.y);
+				acc.z += cos(player.rot.y);
+			}
+			if (event.isKeyPressed(agl::Key::A))
+			{
+				acc.x += cos(player.rot.y);
+				acc.z += -sin(player.rot.y);
+			}
+			if (event.isKeyPressed(agl::Key::S))
+			{
+				acc.x += -sin(player.rot.y);
+				acc.z += -cos(player.rot.y);
+			}
+			if (event.isKeyPressed(agl::Key::D))
+			{
+				acc.x += -cos(player.rot.y);
+				acc.z += sin(player.rot.y);
+			}
+
+			movePlayer(player, acc, FLYVELPERTICK);
+		}
+
+		{
+			agl::Mat<float, 4> tran;
+			tran.translate(player.pos);
+
+			agl::Mat<float, 4> rot;
+			rot.rotate({agl::radianToDegree(player.rot.x), agl::radianToDegree(player.rot.y),
+						agl::radianToDegree(player.rot.z)});
+
+			agl::Mat<float, 4> proj;
+			proj.perspective(PI / 2, 1920 / 1080., 0.1, 100);
+
+			window.updateMvp(proj * rot * tran);
+		}
 	}
 
 	font.deleteFont();
