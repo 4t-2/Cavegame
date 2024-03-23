@@ -2,6 +2,7 @@
 
 #include <cctype>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -11,12 +12,8 @@
 #include <string>
 #include <thread>
 
-#define WALKVELPERTICK	 (0.2 / 3.)
-#define SNEAKVELPERTICK	 0.03
-#define SPRINTVELPERTICK 0.13
-#define BLOCKFRICTION	 std::pow(0.546, 1. / .3)
-#define FLYVELPERTICK	 (0.1 / 3.)
-#define AIRFRICTION		 std::pow(0.75, 1. / 3.)
+#define WALKACC (1 / 3.)
+#define BLCKFRC 0.6
 
 #define BASESPEED WALKVELPERTICK
 
@@ -77,19 +74,17 @@ agl::Vec<float, 2> getCursorScenePosition(agl::Vec<float, 2> cursorWinPos, agl::
 class Player
 {
 	public:
-		agl::Vec<float, 3> pos = {0, -3, -10};
-		agl::Vec<float, 3> rot = {0, 0, 0};
+		agl::Vec<float, 3> pos = {1.1, 2.5, 10.1};
+		agl::Vec<float, 3> rot = {0.1, 0.1, 0};
 		agl::Vec<float, 3> vel = {0, 0, 0};
 
-		float friction = AIRFRICTION;
+		float friction = BLCKFRC;
 
-		bool sneaking;
-		bool sprinting;
+		bool sneaking  = true;
+		bool sprinting = false;
 
 		void update()
 		{
-			pos += vel;
-			vel *= friction;
 		}
 };
 
@@ -112,6 +107,11 @@ class World
 				}
 			}
 		}
+
+		bool getAtPos(agl::Vec<int, 3> pos)
+		{
+			return blocks.at(pos.x).at(pos.y).at(pos.z);
+		}
 };
 
 void hideCursor(agl::RenderWindow &window)
@@ -131,15 +131,29 @@ void hideCursor(agl::RenderWindow &window)
 
 void movePlayer(Player &player, agl::Vec<float, 3> acc, float vel)
 {
-	acc *= 0.98;
+	player.vel *= BLCKFRC * 0.91;
 
-	acc *= vel;
+	acc *= WALKACC * 0.98;
 
-	player.vel += acc;
+	float mod = 1;
+	if (player.sneaking)
+	{
+		mod *= .3;
+	}
+	if (player.sprinting)
+	{
+		mod *= 1.3;
+	}
 
-	player.update();
+	acc *= mod;
+	if (acc.length() > std::max(mod, 1.f) / 3)
+	{
+		acc = acc.normalized() * mod / 3;
+	}
 
-	std::cout << player.vel.length() * 60 << '\n';
+	player.vel += acc * 0.1;
+
+	player.pos += player.vel;
 }
 
 int main()
@@ -205,7 +219,7 @@ int main()
 	blankRect.setRotation({0, 0, 0});
 	blankRect.setColor(agl::Color::Red);
 
-	World world({20, 5, 5});
+	World world({20, 5, 20});
 
 	world.blocks[3 + 5][3][3] = true;
 	world.blocks[3 + 5][2][3] = true;
@@ -242,6 +256,7 @@ int main()
 	simpleShader.use();
 
 	agl::Vec<int, 3> selected;
+	agl::Vec<int, 3> front;
 
 	Player player;
 
@@ -282,6 +297,23 @@ int main()
 			}
 		}
 
+		glDisable(GL_DEPTH_TEST);
+
+		{
+			agl::Mat4f proj;
+			agl::Mat4f trans;
+			proj.ortho(0, windowSize.x, windowSize.y, 0, 0.1, 100);
+			trans.lookAt({0, 0, 10}, {0, 0, 0}, {0, 1, 0});
+
+			window.updateMvp(proj * trans);
+
+			blankRect.setPosition(windowSize / 2 - agl::Vec{3, 3});
+			blankRect.setSize({3, 3});
+			window.drawShape(blankRect);
+		}
+
+		glEnable(GL_DEPTH_TEST);
+
 		window.display();
 
 		static int frame = 0;
@@ -318,7 +350,7 @@ int main()
 			XGetInputFocus(window.baseWindow.dpy, &win, &i);
 			if (win == window.baseWindow.win)
 			{
-				if ((mousePos - (windowSize / 2)).length() > 500)
+				if ((mousePos - (windowSize / 2)).length() > std::min(windowSize.x / 2, windowSize.y / 2))
 				{
 					XWarpPointer(window.baseWindow.dpy, None, window.baseWindow.win, 0, 0, 0, 0, windowSize.x / 2,
 								 windowSize.y / 2);
@@ -332,41 +364,88 @@ int main()
 			agl::Vec<float, 3> acc;
 			if (event.isKeyPressed(agl::Key::W))
 			{
-				acc.x += sin(player.rot.y);
-				acc.z += cos(player.rot.y);
-			}
-			if (event.isKeyPressed(agl::Key::A))
-			{
-				acc.x += cos(player.rot.y);
-				acc.z += -sin(player.rot.y);
-			}
-			if (event.isKeyPressed(agl::Key::S))
-			{
 				acc.x += -sin(player.rot.y);
 				acc.z += -cos(player.rot.y);
 			}
-			if (event.isKeyPressed(agl::Key::D))
+			if (event.isKeyPressed(agl::Key::A))
 			{
 				acc.x += -cos(player.rot.y);
 				acc.z += sin(player.rot.y);
 			}
+			if (event.isKeyPressed(agl::Key::S))
+			{
+				acc.x += sin(player.rot.y);
+				acc.z += cos(player.rot.y);
+			}
+			if (event.isKeyPressed(agl::Key::D))
+			{
+				acc.x += cos(player.rot.y);
+				acc.z += -sin(player.rot.y);
+			}
 
-			movePlayer(player, acc, FLYVELPERTICK);
+			movePlayer(player, acc, WALKACC);
 		}
 
 		{
 			agl::Mat<float, 4> tran;
-			tran.translate(player.pos);
+			tran.translate(player.pos * -1);
 
 			agl::Mat<float, 4> rot;
 			rot.rotate({agl::radianToDegree(player.rot.x), agl::radianToDegree(player.rot.y),
 						agl::radianToDegree(player.rot.z)});
 
 			agl::Mat<float, 4> proj;
-			proj.perspective(PI / 2, 1920 / 1080., 0.1, 100);
+			proj.perspective(PI / 2, windowSize.x / windowSize.y, 0.1, 100);
 
 			window.updateMvp(proj * rot * tran);
 		}
+
+		{
+			agl::Vec<float, 3> dir = {-sin(player.rot.y) * cos(player.rot.x), -sin(player.rot.x),
+									  -cos(player.rot.y) * cos(player.rot.x)};
+
+			agl::Vec<float, 3> blockPos = player.pos;
+
+			selected = blockPos;
+			front = blockPos;
+
+			while (true)
+			{
+				if (blockPos.x >= world.size.x || blockPos.x < 0 || blockPos.y >= world.size.y || blockPos.y < 0 ||
+					blockPos.z >= world.size.z || blockPos.z < 0)
+				{
+					break;
+				}
+
+				if (world.getAtPos(blockPos))
+				{
+					selected = blockPos;
+					break;
+				}
+
+				blockPos += dir / 100;
+
+				if (selected == agl::Vec<int, 3>(blockPos))
+				{
+				}
+				else
+				{
+					front	 = selected;
+					selected = blockPos;
+				}
+			}
+		}
+
+		if(event.keybuffer.find("e") != std::string::npos)
+		{
+			world.blocks[front.x][front.y][front.z] = true;
+		}
+		if(event.keybuffer.find("q") != std::string::npos)
+		{
+			world.blocks[selected.x][selected.y][selected.z] = false;
+		}
+
+		window.setViewport(0, 0, windowSize.x, windowSize.y);
 	}
 
 	font.deleteFont();
