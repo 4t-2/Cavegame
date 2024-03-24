@@ -12,6 +12,7 @@
 #include <string>
 #include <thread>
 
+#define GRAVACC (-.08 / 9)
 #define WALKACC (1 / 3.)
 #define BLCKFRC 0.6
 
@@ -74,14 +75,15 @@ agl::Vec<float, 2> getCursorScenePosition(agl::Vec<float, 2> cursorWinPos, agl::
 class Player
 {
 	public:
-		agl::Vec<float, 3> pos = {1.1, 2.5, 10.1};
-		agl::Vec<float, 3> rot = {0.1, 0.1, 0};
+		agl::Vec<float, 3> pos = {1, 5, 1};
+		agl::Vec<float, 3> rot = {0, 0, 0};
 		agl::Vec<float, 3> vel = {0, 0, 0};
 
 		float friction = BLCKFRC;
 
-		bool sneaking  = true;
+		bool sneaking  = false;
 		bool sprinting = false;
+		bool grounded  = false;
 
 		void update()
 		{
@@ -110,6 +112,10 @@ class World
 
 		bool getAtPos(agl::Vec<int, 3> pos)
 		{
+			if (pos.x >= size.x || pos.x < 0 || pos.y >= size.y || pos.y < 0 || pos.z >= size.z || pos.z < 0)
+			{
+				return false;
+			}
 			return blocks.at(pos.x).at(pos.y).at(pos.z);
 		}
 };
@@ -129,9 +135,10 @@ void hideCursor(agl::RenderWindow &window)
 	XFreePixmap(window.baseWindow.dpy, bitmapNoData);
 }
 
-void movePlayer(Player &player, agl::Vec<float, 3> acc, float vel)
+void movePlayer(Player &player, agl::Vec<float, 3> acc)
 {
-	player.vel *= BLCKFRC * 0.91;
+	player.vel.x *= BLCKFRC * 0.91;
+	player.vel.z *= BLCKFRC * 0.91;
 
 	acc *= WALKACC * 0.98;
 
@@ -154,6 +161,38 @@ void movePlayer(Player &player, agl::Vec<float, 3> acc, float vel)
 	player.vel += acc * 0.1;
 
 	player.pos += player.vel;
+
+	player.vel.y *= 0.98;
+	player.vel.y += GRAVACC;
+}
+
+struct Collision
+{
+		agl::Vec<int, 3> norm;
+		float			 overlap;
+};
+
+struct Box
+{
+		agl::Vec<float, 3> pos;
+		agl::Vec<float, 3> size;
+};
+
+Collision boxCollide(Box b1, Box b2)
+{
+	// Y test
+	agl::Vec<float, 3> overlap;
+
+	{
+		overlap.y = (b1.pos.y + b1.size.y) - b2.pos.y;
+
+		if (overlap.y < 0)
+		{
+			return {};
+		}
+	}
+	std::cout << "co" << '\n';
+	return {{0, 1, 0}, overlap.y};
 }
 
 int main()
@@ -219,31 +258,17 @@ int main()
 	blankRect.setRotation({0, 0, 0});
 	blankRect.setColor(agl::Color::Red);
 
-	World world({20, 5, 20});
+	World world({20, 20, 20});
 
-	world.blocks[3 + 5][3][3] = true;
-	world.blocks[3 + 5][2][3] = true;
-	world.blocks[3 + 5][4][3] = true;
-	world.blocks[2 + 5][2][3] = true;
-	world.blocks[4 + 5][2][3] = true;
-	/*
-	 *   # #
-	 *   # #
-	 * #     #
-	 *  #####
-	 */
-	world.blocks[2][4][0] = true;
-	world.blocks[2][3][0] = true;
-	world.blocks[4][4][0] = true;
-	world.blocks[4][3][0] = true;
-
-	world.blocks[0][1][0] = true;
-	world.blocks[1][0][0] = true;
-	world.blocks[2][0][0] = true;
-	world.blocks[3][0][0] = true;
-	world.blocks[4][0][0] = true;
-	world.blocks[5][0][0] = true;
-	world.blocks[6][1][0] = true;
+	for (int x = 0; x < 20; x++)
+	{
+		for (int y = 0; y < 20; y++)
+		{
+			world.blocks[x][0][y] = true;
+			world.blocks[x][1][y] = true;
+			world.blocks[x][2][y] = true;
+		}
+	}
 
 	agl::Cuboid cube;
 	cube.setSize({1, 1, 1});
@@ -383,12 +408,90 @@ int main()
 				acc.z += -sin(player.rot.y);
 			}
 
-			movePlayer(player, acc, WALKACC);
+			if (event.isKeyPressed(agl::Key::Space) && player.grounded)
+			{
+				player.vel.y = 0.48 / 3;
+			}
+
+			std::cout << player.pos.y << '\n';
+
+			player.grounded = false;
+
+			movePlayer(player, acc);
+
+			for (int x = player.pos.x - 0.3; x < player.pos.x + 0.3; x++)
+			{
+				for (int z = player.pos.z - 0.3; z < player.pos.z + 0.3; z++)
+				{
+					if (!world.getAtPos({x, player.pos.y + 1, z}) && !world.getAtPos({x, player.pos.y + 2, z}))
+					{
+						if (world.getAtPos({x, player.pos.y, z}) && player.vel.y < 0)
+						{
+							if (player.pos.y - (int)player.pos.y < .5)
+							{
+								continue;
+							}
+							player.vel.y = 0;
+							player.pos.y = (int)player.pos.y + 1;
+
+							player.grounded = true;
+						}
+
+						if (world.getAtPos({x, player.pos.y + 1.8, z}) && player.vel.y > 0)
+						{
+							player.vel.y = 0;
+							player.pos.y = (int)(player.pos.y + 1.8) - 1.8;
+						}
+					}
+				}
+			}
+
+			for (int x = player.pos.x - 0.3; x < player.pos.x + 0.3; x++)
+			{
+				for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+				{
+					for (int z = player.pos.z - 0.3; z < player.pos.z + 0.3; z++)
+					{
+						if (world.getAtPos({x, y, z}))
+						{
+							agl::Vec<float, 2> center = {x + .5, y + .5, z + .5};
+							if (abs(center.x - player.pos.x) < abs(center.z - player.pos.z))
+							{
+								if (center.z > player.pos.z)
+								{
+									player.vel.z = 0;
+									player.pos.z = center.z - 0.3 - .5;
+								}
+								else if (center.z < player.pos.z)
+								{
+									player.vel.z = 0;
+									player.pos.z = center.z + 0.3 + .5;
+								}
+							}
+							else
+							{
+								if (center.x > player.pos.x)
+								{
+									player.vel.x = 0;
+									player.pos.x = center.x - 0.3 - .5;
+								}
+								else if (center.x < player.pos.x)
+								{
+									player.vel.x = 0;
+									player.pos.x = center.x + 0.3 + .5;
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// std::cout << player.vel.y * 60 << " " << player.pos.y << '\n';
 		}
 
 		{
 			agl::Mat<float, 4> tran;
-			tran.translate(player.pos * -1);
+			tran.translate(player.pos * -1 - agl::Vec{0.f, 1.8f, 0.f});
 
 			agl::Mat<float, 4> rot;
 			rot.rotate({agl::radianToDegree(player.rot.x), agl::radianToDegree(player.rot.y),
@@ -404,10 +507,10 @@ int main()
 			agl::Vec<float, 3> dir = {-sin(player.rot.y) * cos(player.rot.x), -sin(player.rot.x),
 									  -cos(player.rot.y) * cos(player.rot.x)};
 
-			agl::Vec<float, 3> blockPos = player.pos;
+			agl::Vec<float, 3> blockPos = player.pos + agl::Vec<float, 3>{0, 1.8, 0};
 
 			selected = blockPos;
-			front = blockPos;
+			front	 = blockPos;
 
 			while (true)
 			{
@@ -436,11 +539,11 @@ int main()
 			}
 		}
 
-		if(event.keybuffer.find("e") != std::string::npos)
+		if (event.keybuffer.find("e") != std::string::npos && !(front == player.pos))
 		{
 			world.blocks[front.x][front.y][front.z] = true;
 		}
-		if(event.keybuffer.find("q") != std::string::npos)
+		if (event.keybuffer.find("q") != std::string::npos)
 		{
 			world.blocks[selected.x][selected.y][selected.z] = false;
 		}
