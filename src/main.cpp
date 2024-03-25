@@ -244,6 +244,10 @@ int main()
 	agl::Texture blank;
 	blank.setBlank();
 
+	agl::Texture stoneTexture;
+	stoneTexture.loadFromFile("./resources/bedrock-samples-1.20.70.6/"
+							  "resource_pack/textures/blocks/cobblestone.png");
+
 	agl::Font font;
 	font.setup("./font/font.ttf", 16);
 
@@ -252,11 +256,6 @@ int main()
 
 	agl::Rectangle blankRect;
 	blankRect.setTexture(&blank);
-
-	blankRect.setPosition({0, 0, 0});
-	blankRect.setSize({10, 20, 0});
-	blankRect.setRotation({0, 0, 0});
-	blankRect.setColor(agl::Color::Red);
 
 	World world({20, 20, 20});
 
@@ -269,13 +268,6 @@ int main()
 			world.blocks[x][2][y] = true;
 		}
 	}
-
-	agl::Cuboid cube;
-	cube.setSize({1, 1, 1});
-	cube.setPosition({0, 0, 0});
-	cube.setRotation({0, 0, 0});
-	cube.setTexture(&blank);
-	cube.setColor(agl::Color::White);
 
 	window.getShaderUniforms(simpleShader);
 	simpleShader.use();
@@ -307,16 +299,49 @@ int main()
 				{
 					if (world.blocks[x][y][z])
 					{
-						cube.setPosition({static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)});
-						cube.setColor({(unsigned char)(255 * ((float)x / world.size.x)),
-									   (unsigned char)(255 * ((float)y / world.size.y)),
-									   (unsigned char)(255 * ((float)z / world.size.z))});
+						blankRect.setColor(agl::Color::White);
+						blankRect.setTexture(&stoneTexture);
 
-						if (selected == agl::Vec{x, y, z})
-						{
-							cube.setColor(agl::Color::Green);
-						}
-						window.drawShape(cube);
+						// y+
+						blankRect.setSize({1, 1, 1});
+						blankRect.setPosition({x, y + 1, z});
+						blankRect.setRotation({90, 0, 0});
+						window.drawShape(blankRect);
+
+						// y-
+						blankRect.setSize({1, -1, 1});
+						blankRect.setPosition({x, y, z + 1});
+						blankRect.setRotation({90, 0, 0});
+						window.drawShape(blankRect);
+
+						// z-
+						blankRect.setSize({-1, -1, 1});
+						blankRect.setPosition({x + 1, y + 1, z});
+						blankRect.setRotation({0, 0, 0});
+						window.drawShape(blankRect);
+
+						// z+
+						blankRect.setSize({1, -1, 1});
+						blankRect.setPosition({x, y + 1, z + 1});
+						blankRect.setRotation({0, 0, 0});
+						window.drawShape(blankRect);
+
+						// x-
+						blankRect.setSize({-1, -1, 1});
+						blankRect.setPosition({x + 1, y + 1, z + 1});
+						blankRect.setRotation({0, 90, 0});
+						window.drawShape(blankRect);
+
+						// x+
+						blankRect.setSize({1, -1, 1});
+						blankRect.setPosition({x, y + 1, z});
+						blankRect.setRotation({0, 90, 0});
+						window.drawShape(blankRect);
+
+						// if (selected == agl::Vec{x, y, z})
+						// {
+						// 	cube.setColor(agl::Color::Green);
+						// }
 					}
 				}
 			}
@@ -332,6 +357,9 @@ int main()
 
 			window.updateMvp(proj * trans);
 
+			blankRect.setTexture(&blank);
+			blankRect.setColor(agl::Color::White);
+			blankRect.setRotation({0, 0, 0});
 			blankRect.setPosition(windowSize / 2 - agl::Vec{3, 3});
 			blankRect.setSize({3, 3});
 			window.drawShape(blankRect);
@@ -413,7 +441,7 @@ int main()
 				player.vel.y = 0.48 / 3;
 			}
 
-			std::cout << player.pos.y << '\n';
+			std::cout << player.pos << '\n';
 
 			player.grounded = false;
 
