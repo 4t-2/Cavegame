@@ -33,7 +33,7 @@ endif()
 add_executable(CaveGame ${SRC} ${AGL} ${PHY} ${IN})
 
 if(LINUX)
-	target_link_libraries(CaveGame -lX11 -lGL -lGLEW -lSOIL -lfreetype)
+	target_link_libraries(CaveGame -lX11 -lGL -lGLEW -lSOIL -lfreetype -ljsoncpp)
 	target_include_directories(CaveGame PUBLIC "/usr/include/freetype2")
 	include_directories("./lib")
 endif()

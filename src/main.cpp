@@ -12,11 +12,16 @@
 #include <string>
 #include <thread>
 
+#include "../inc/Atlas.hpp"
+#include "../inc/Block.hpp"
+
 #define GRAVACC (-.08 / 9)
 #define WALKACC (1 / 3.)
 #define BLCKFRC 0.6
 
 #define BASESPEED WALKVELPERTICK
+
+#define FOREACH(x) for(int index = 0; index < x.size(); index++)
 
 class Listener
 {
@@ -93,8 +98,8 @@ class Player
 class World
 {
 	public:
-		std::vector<std::vector<std::vector<bool>>> blocks;
-		agl::Vec<int, 3>							size;
+		std::vector<std::vector<std::vector<unsigned int>>> blocks;
+		agl::Vec<int, 3>									size;
 
 		World(agl::Vec<int, 3> size) : size(size)
 		{
@@ -201,7 +206,7 @@ int main()
 
 	agl::RenderWindow window;
 	window.setup({1920, 1080}, "CaveGame");
-	window.setClearColor(agl::Color::Gray);
+	window.setClearColor({0x6B, 0xFF, 0xFF});
 	window.setFPS(0);
 
 	agl::Vec<float, 2> windowSize;
@@ -225,6 +230,31 @@ int main()
 
 	agl::Shader menuShader;
 	menuShader.loadFromFile("./shader/menuVert.glsl", "./shader/menu.glsl");
+
+	Atlas atlas("./resources/java/assets/minecraft/textures/block/");
+
+	std::vector<Block> blockDefs;
+	blockDefs.reserve(atlas.blockMap.size() + 1);
+
+	{
+		blockDefs.emplace_back("air");
+
+		for (auto &entry :
+			 std::filesystem::recursive_directory_iterator("./resources/java/assets/minecraft/models/block/"))
+		{
+			std::fstream fs(entry.path(), std::ios::in);
+
+			Json::Value	 root;
+			Json::Reader reader;
+			reader.parse(fs, root, false);
+
+			fs.close();
+
+			auto s = std::filesystem::path(entry).filename().string();
+
+			blockDefs.emplace_back(root, atlas, s.substr(0, s.length() - 5));
+		}
+	}
 
 	agl::Texture foodTexture;
 	foodTexture.loadFromFile("./img/food.png");
@@ -300,39 +330,54 @@ int main()
 					if (world.blocks[x][y][z])
 					{
 						blankRect.setColor(agl::Color::White);
-						blankRect.setTexture(&stoneTexture);
+						blankRect.setTexture(&atlas.texture);
+						blankRect.setTextureScaling({16 / (float)atlas.size.x, 16 / (float)atlas.size.y});
+
+						Block &type = blockDefs[world.blocks[x][y][z]];
 
 						// y+
+						blankRect.setTextureTranslation(
+							{type.up.x / (float)atlas.size.x, type.up.y / (float)atlas.size.y});
 						blankRect.setSize({1, 1, 1});
 						blankRect.setPosition({x, y + 1, z});
 						blankRect.setRotation({90, 0, 0});
 						window.drawShape(blankRect);
 
 						// y-
+						blankRect.setTextureTranslation(
+							{type.down.x / (float)atlas.size.x, type.down.y / (float)atlas.size.y});
 						blankRect.setSize({1, -1, 1});
 						blankRect.setPosition({x, y, z + 1});
 						blankRect.setRotation({90, 0, 0});
 						window.drawShape(blankRect);
 
 						// z-
+						blankRect.setTextureTranslation(
+							{type.south.x / (float)atlas.size.x, type.south.y / (float)atlas.size.y});
 						blankRect.setSize({-1, -1, 1});
 						blankRect.setPosition({x + 1, y + 1, z});
 						blankRect.setRotation({0, 0, 0});
 						window.drawShape(blankRect);
 
 						// z+
+						blankRect.setTextureTranslation(
+							{type.north.x / (float)atlas.size.x, type.north.y / (float)atlas.size.y});
 						blankRect.setSize({1, -1, 1});
 						blankRect.setPosition({x, y + 1, z + 1});
 						blankRect.setRotation({0, 0, 0});
 						window.drawShape(blankRect);
 
 						// x-
+						blankRect.setTextureTranslation(
+							{type.west.x / (float)atlas.size.x, type.west.y / (float)atlas.size.y});
 						blankRect.setSize({-1, -1, 1});
 						blankRect.setPosition({x + 1, y + 1, z + 1});
 						blankRect.setRotation({0, 90, 0});
 						window.drawShape(blankRect);
 
 						// x+
+						blankRect.setTextureTranslation(
+							{type.east.x / (float)atlas.size.x, type.east.y / (float)atlas.size.y});
 						blankRect.setSize({1, -1, 1});
 						blankRect.setPosition({x, y + 1, z});
 						blankRect.setRotation({0, 90, 0});
@@ -357,11 +402,13 @@ int main()
 
 			window.updateMvp(proj * trans);
 
+			blankRect.setTextureScaling({1, 1, 1});
+			blankRect.setTextureTranslation({0, 0, 0});
 			blankRect.setTexture(&blank);
 			blankRect.setColor(agl::Color::White);
 			blankRect.setRotation({0, 0, 0});
-			blankRect.setPosition(windowSize / 2 - agl::Vec{3, 3});
 			blankRect.setSize({3, 3});
+			blankRect.setPosition(windowSize / 2 - blankRect.getSize() / 2);
 			window.drawShape(blankRect);
 		}
 
@@ -440,8 +487,6 @@ int main()
 			{
 				player.vel.y = 0.48 / 3;
 			}
-
-			std::cout << player.pos << '\n';
 
 			player.grounded = false;
 
@@ -545,6 +590,7 @@ int main()
 				if (blockPos.x >= world.size.x || blockPos.x < 0 || blockPos.y >= world.size.y || blockPos.y < 0 ||
 					blockPos.z >= world.size.z || blockPos.z < 0)
 				{
+					selected = front;
 					break;
 				}
 
@@ -567,13 +613,49 @@ int main()
 			}
 		}
 
+		static unsigned int pallete = 1;
+
+		if(event.isKeyPressed(agl::Key::F1))
+		{
+			FOREACH(blockDefs)
+			{
+				if(blockDefs[index].name == "cobblestone")
+				{
+					pallete = index;
+					break;
+				}
+			}
+		}
+		if(event.isKeyPressed(agl::Key::F2))
+		{
+			FOREACH(blockDefs)
+			{
+				if(blockDefs[index].name == "oak_planks")
+				{
+					pallete = index;
+					break;
+				}
+			}
+		}
+		if(event.isKeyPressed(agl::Key::F3))
+		{
+			FOREACH(blockDefs)
+			{
+				if(blockDefs[index].name == "stone_bricks")
+				{
+					pallete = index;
+					break;
+				}
+			}
+		}
+
 		if (event.keybuffer.find("e") != std::string::npos && !(front == player.pos))
 		{
-			world.blocks[front.x][front.y][front.z] = true;
+			world.blocks[front.x][front.y][front.z] = pallete;
 		}
 		if (event.keybuffer.find("q") != std::string::npos)
 		{
-			world.blocks[selected.x][selected.y][selected.z] = false;
+			world.blocks[selected.x][selected.y][selected.z] = 0;
 		}
 
 		window.setViewport(0, 0, windowSize.x, windowSize.y);
