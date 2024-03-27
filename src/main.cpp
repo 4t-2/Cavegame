@@ -21,49 +21,45 @@
 
 #define BASESPEED WALKVELPERTICK
 
-#define FOREACH(x) for(int index = 0; index < x.size(); index++)
+#define FOREACH(x) for (int index = 0; index < x.size(); index++)
+
+enum ListenState
+{
+	Hold,
+	First,
+	Last,
+	Null
+};
 
 class Listener
 {
 	private:
-		std::function<void()> first;
-		std::function<void()> hold;
-		std::function<void()> last;
-		bool				  pastState = false;
+		bool pastState = false;
 
 	public:
-		Listener(std::function<void()> first, std::function<void()> hold, std::function<void()> last);
-		void update(bool state);
+		ListenState ls = ListenState::Null;
+		void		update(bool state)
+		{
+			if (state)
+			{
+				if (pastState)
+				{
+					ls = ListenState::Hold;
+				}
+				else
+				{
+					ls = ListenState::First;
+
+					pastState = true;
+				}
+			}
+			else if (pastState)
+			{
+				ls		  = ListenState::Last;
+				pastState = false;
+			}
+		}
 };
-
-Listener::Listener(std::function<void()> first, std::function<void()> hold, std::function<void()> last)
-{
-	this->first = first;
-	this->hold	= hold;
-	this->last	= last;
-}
-
-void Listener::update(bool state)
-{
-	if (state)
-	{
-		if (pastState)
-		{
-			hold();
-		}
-		else
-		{
-			first();
-
-			pastState = true;
-		}
-	}
-	else if (pastState)
-	{
-		last();
-		pastState = false;
-	}
-}
 
 int getMillisecond()
 {
@@ -200,6 +196,230 @@ Collision boxCollide(Box b1, Box b2)
 	return {{0, 1, 0}, overlap.y};
 }
 
+void correctPosition(Player &player, World &world)
+{
+	for (int x = player.pos.x - 0.3; x < player.pos.x + 0.3; x++)
+	{
+		for (int z = player.pos.z - 0.3; z < player.pos.z + 0.3; z++)
+		{
+			if (!world.getAtPos({x, player.pos.y + 1, z}) && !world.getAtPos({x, player.pos.y + 2, z}))
+			{
+				if (world.getAtPos({x, player.pos.y, z}) && player.vel.y < 0)
+				{
+					if (player.pos.y - (int)player.pos.y < .5)
+					{
+						continue;
+					}
+					player.vel.y = 0;
+					player.pos.y = (int)player.pos.y + 1;
+
+					player.grounded = true;
+				}
+
+				if (world.getAtPos({x, player.pos.y + 1.8, z}) && player.vel.y > 0)
+				{
+					player.vel.y = 0;
+					player.pos.y = (int)(player.pos.y + 1.8) - 1.8;
+				}
+			}
+		}
+	}
+
+	for (int x = player.pos.x - 0.3; x < player.pos.x + 0.3; x++)
+	{
+		for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+		{
+			for (int z = player.pos.z - 0.3; z < player.pos.z + 0.3; z++)
+			{
+				if (world.getAtPos({x, y, z}))
+				{
+					agl::Vec<float, 2> center = {x + .5, y + .5, z + .5};
+					if (abs(center.x - player.pos.x) < abs(center.z - player.pos.z))
+					{
+						if (center.z > player.pos.z)
+						{
+							player.vel.z = 0;
+							player.pos.z = center.z - 0.3 - .5;
+						}
+						else if (center.z < player.pos.z)
+						{
+							player.vel.z = 0;
+							player.pos.z = center.z + 0.3 + .5;
+						}
+					}
+					else
+					{
+						if (center.x > player.pos.x)
+						{
+							player.vel.x = 0;
+							player.pos.x = center.x - 0.3 - .5;
+						}
+						else if (center.x < player.pos.x)
+						{
+							player.vel.x = 0;
+							player.pos.x = center.x + 0.3 + .5;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+void updateSelected(Player &player, agl::Vec<int, 3> &selected, agl::Vec<int, 3> &front, World &world)
+{
+	agl::Vec<float, 3> dir = {-sin(player.rot.y) * cos(player.rot.x), -sin(player.rot.x),
+							  -cos(player.rot.y) * cos(player.rot.x)};
+
+	agl::Vec<float, 3> blockPos = player.pos + agl::Vec<float, 3>{0, 1.8, 0};
+
+	selected = blockPos;
+	front	 = blockPos;
+
+	while (true)
+	{
+		if (blockPos.x >= world.size.x || blockPos.x < 0 || blockPos.y >= world.size.y || blockPos.y < 0 ||
+			blockPos.z >= world.size.z || blockPos.z < 0)
+		{
+			selected = front;
+			break;
+		}
+
+		if (world.getAtPos(blockPos))
+		{
+			selected = blockPos;
+			break;
+		}
+
+		blockPos += dir / 100;
+
+		if (selected == agl::Vec<int, 3>(blockPos))
+		{
+		}
+		else
+		{
+			front	 = selected;
+			selected = blockPos;
+		}
+	}
+}
+
+class CommandBox : public agl::Drawable
+{
+	public:
+		agl::Rectangle &rect;
+		agl::Text	   &text;
+		agl::Texture   &blank;
+
+		std::string cmd = "";
+
+		std::vector<Block> &blocks;
+
+		agl::Vec<int, 2> &winSize;
+
+		bool commit = false;
+
+		bool &focused;
+
+		int pallete = 1;
+
+		CommandBox(agl::Rectangle &rect, agl::Text &text, agl::Texture &blank, std::vector<Block> &blocks,
+				   agl::Vec<int, 2> &winSize, bool &focused)
+			: rect(rect), text(text), blank(blank), blocks(blocks), winSize(winSize), focused(focused)
+		{
+		}
+
+		void update(std::string buffer)
+		{
+			cmd += buffer;
+
+			auto safeSub = [](std::string &str, int pos) -> std::string {
+				if (pos > str.length())
+				{
+					return "";
+				}
+				else
+				{
+					return str.substr(pos);
+				}
+			};
+			auto removeChar = [&](std::string &str, int i) { str = str.substr(0, i) + safeSub(str, i + 1); };
+
+			for (int i = 0; i < cmd.size(); i++)
+			{
+				if (cmd[i] == 8)
+				{
+					removeChar(cmd, i);
+					i--;
+					if (i >= 0)
+					{
+						removeChar(cmd, i);
+						i--;
+					}
+				}
+				else if (cmd[i] == '\r')
+				{
+					commit = true;
+					cmd = cmd.substr(0, i);
+					break;
+				}
+				else if (cmd[i] < 32 || cmd[i] == 127)
+				{
+					removeChar(cmd, i);
+					i--;
+				}
+			}
+		}
+
+		void drawFunction(agl::RenderWindow &win) override
+		{
+			rect.setTexture(&blank);
+			rect.setColor(agl::Color::Black);
+			rect.setPosition({0, 0, 0});
+			rect.setRotation({0, 0, 0});
+			rect.setSize({winSize.x, text.getHeight() + 10, 0});
+
+			win.drawShape(rect);
+
+			text.setText(" > " + cmd);
+			text.setPosition({0, 0, 0});
+			text.setColor(agl::Color::White);
+
+			win.drawText(text);
+
+			int offset = text.getHeight() + 10;
+
+			for (unsigned int i = 0; i < blocks.size(); i++)
+			{
+				auto &b = blocks[i];
+
+				if (b.name.substr(0, cmd.length()) == cmd)
+				{
+					rect.setPosition({0, offset, 0});
+					text.setPosition({0, offset, 0});
+					text.setText(b.name);
+					text.setColor(agl::Color::Gray);
+
+					win.drawShape(rect);
+					win.drawText(text);
+
+					offset += text.getHeight() + 10;
+				}
+
+				if (b.name == cmd && commit)
+				{
+					commit	= false;
+					pallete = i;
+					focused = true;
+					cmd = "";
+					break;
+				}
+			}
+
+			commit = false;
+		}
+};
+
 int main()
 {
 	printf("Starting AGL\n");
@@ -209,7 +429,7 @@ int main()
 	window.setClearColor({0x6B, 0xFF, 0xFF});
 	window.setFPS(0);
 
-	agl::Vec<float, 2> windowSize;
+	agl::Vec<int, 2> windowSize;
 
 	window.GLEnable(GL_ALPHA_TEST);
 	glAlphaFunc(GL_GREATER, 0.1f);
@@ -235,7 +455,6 @@ int main()
 
 	std::vector<Block> blockDefs;
 	blockDefs.reserve(atlas.blockMap.size() + 1);
-
 	{
 		blockDefs.emplace_back("air");
 
@@ -279,10 +498,11 @@ int main()
 							  "resource_pack/textures/blocks/cobblestone.png");
 
 	agl::Font font;
-	font.setup("./font/font.ttf", 16);
+	font.setup("./font/font.ttf", 24);
 
-	agl::Font smallFont;
-	smallFont.setup("./font/font.ttf", 12);
+	agl::Text text;
+	text.setFont(&font);
+	text.setScale(1);
 
 	agl::Rectangle blankRect;
 	blankRect.setTexture(&blank);
@@ -302,8 +522,15 @@ int main()
 	window.getShaderUniforms(simpleShader);
 	simpleShader.use();
 
+	bool focused = true;
+
+	CommandBox cmdBox(blankRect, text, blank, blockDefs, windowSize, focused);
+
 	agl::Vec<int, 3> selected;
 	agl::Vec<int, 3> front;
+
+	Listener lclis;
+	Listener rclis;
 
 	Player player;
 
@@ -410,6 +637,11 @@ int main()
 			blankRect.setSize({3, 3});
 			blankRect.setPosition(windowSize / 2 - blankRect.getSize() / 2);
 			window.drawShape(blankRect);
+
+			if (!focused)
+			{
+				window.draw(cmdBox);
+			}
 		}
 
 		glEnable(GL_DEPTH_TEST);
@@ -419,34 +651,34 @@ int main()
 		static int frame = 0;
 		frame++;
 
-		static agl::Vec<int, 2> oldMousePos = event.getPointerWindowPosition();
-
-		agl::Vec<int, 2> mousePos = event.getPointerWindowPosition();
-
-		agl::Vec<int, 2> deltaPos = mousePos - oldMousePos;
-
-		constexpr float sensitivity = .5;
-
-		agl::Vec<float, 2> rotDelta =
-			(agl::Vec<float, 3>(deltaPos.y, -deltaPos.x, 0) * 1.2 * std::pow(sensitivity * 0.6 + 0.2, 3));
-
-		player.rot += rotDelta * PI / 180;
-
-		if (player.rot.x > PI / 2)
+		if (focused)
 		{
-			player.rot.x = PI / 2;
-		}
-		else if (player.rot.x < -PI / 2)
-		{
+			static agl::Vec<int, 2> oldMousePos = event.getPointerWindowPosition();
 
-			player.rot.x = -PI / 2;
-		}
+			agl::Vec<int, 2> mousePos = event.getPointerWindowPosition();
 
-		oldMousePos = mousePos;
+			agl::Vec<int, 2> deltaPos = mousePos - oldMousePos;
 
-		{
-			Window win = 0;
-			int	   i   = 0;
+			constexpr float sensitivity = .5;
+
+			agl::Vec<float, 2> rotDelta =
+				(agl::Vec<float, 3>(deltaPos.y, -deltaPos.x, 0) * 1.2 * std::pow(sensitivity * 0.6 + 0.2, 3));
+
+			player.rot += rotDelta * PI / 180;
+
+			if (player.rot.x > PI / 2)
+			{
+				player.rot.x = PI / 2;
+			}
+			else if (player.rot.x < -PI / 2)
+			{
+
+				player.rot.x = -PI / 2;
+			}
+
+			oldMousePos = mousePos;
+			Window win	= 0;
+			int	   i	= 0;
 			XGetInputFocus(window.baseWindow.dpy, &win, &i);
 			if (win == window.baseWindow.win)
 			{
@@ -458,9 +690,9 @@ int main()
 					oldMousePos = windowSize / 2;
 				}
 			}
-		}
 
-		{
+			updateSelected(player, selected, front, world);
+
 			agl::Vec<float, 3> acc;
 			if (event.isKeyPressed(agl::Key::W))
 			{
@@ -491,75 +723,35 @@ int main()
 			player.grounded = false;
 
 			movePlayer(player, acc);
+			correctPosition(player, world);
 
-			for (int x = player.pos.x - 0.3; x < player.pos.x + 0.3; x++)
+			lclis.update(event.isPointerButtonPressed(agl::Button::Left));
+			rclis.update(event.isPointerButtonPressed(agl::Button::Right));
+
+			if (rclis.ls == ListenState::First && !(front == player.pos))
 			{
-				for (int z = player.pos.z - 0.3; z < player.pos.z + 0.3; z++)
-				{
-					if (!world.getAtPos({x, player.pos.y + 1, z}) && !world.getAtPos({x, player.pos.y + 2, z}))
-					{
-						if (world.getAtPos({x, player.pos.y, z}) && player.vel.y < 0)
-						{
-							if (player.pos.y - (int)player.pos.y < .5)
-							{
-								continue;
-							}
-							player.vel.y = 0;
-							player.pos.y = (int)player.pos.y + 1;
-
-							player.grounded = true;
-						}
-
-						if (world.getAtPos({x, player.pos.y + 1.8, z}) && player.vel.y > 0)
-						{
-							player.vel.y = 0;
-							player.pos.y = (int)(player.pos.y + 1.8) - 1.8;
-						}
-					}
-				}
+				world.blocks[front.x][front.y][front.z] = cmdBox.pallete;
+			}
+			if (lclis.ls == ListenState::First && focused)
+			{
+				world.blocks[selected.x][selected.y][selected.z] = 0;
 			}
 
-			for (int x = player.pos.x - 0.3; x < player.pos.x + 0.3; x++)
+			if (event.isKeyPressed(agl::Key::T))
 			{
-				for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
-				{
-					for (int z = player.pos.z - 0.3; z < player.pos.z + 0.3; z++)
-					{
-						if (world.getAtPos({x, y, z}))
-						{
-							agl::Vec<float, 2> center = {x + .5, y + .5, z + .5};
-							if (abs(center.x - player.pos.x) < abs(center.z - player.pos.z))
-							{
-								if (center.z > player.pos.z)
-								{
-									player.vel.z = 0;
-									player.pos.z = center.z - 0.3 - .5;
-								}
-								else if (center.z < player.pos.z)
-								{
-									player.vel.z = 0;
-									player.pos.z = center.z + 0.3 + .5;
-								}
-							}
-							else
-							{
-								if (center.x > player.pos.x)
-								{
-									player.vel.x = 0;
-									player.pos.x = center.x - 0.3 - .5;
-								}
-								else if (center.x < player.pos.x)
-								{
-									player.vel.x = 0;
-									player.pos.x = center.x + 0.3 + .5;
-								}
-							}
-						}
-					}
-				}
+				focused = false;
 			}
-
-			// std::cout << player.vel.y * 60 << " " << player.pos.y << '\n';
+		}
+		else
+		{
+			if (event.isKeyPressed(agl::Key::Escape))
+			{
+				focused = true;
+			}
+			else
+			{
+				cmdBox.update(event.keybuffer);
+			}
 		}
 
 		{
@@ -571,91 +763,9 @@ int main()
 						agl::radianToDegree(player.rot.z)});
 
 			agl::Mat<float, 4> proj;
-			proj.perspective(PI / 2, windowSize.x / windowSize.y, 0.1, 100);
+			proj.perspective(PI / 2, (float)windowSize.x / windowSize.y, 0.1, 100);
 
 			window.updateMvp(proj * rot * tran);
-		}
-
-		{
-			agl::Vec<float, 3> dir = {-sin(player.rot.y) * cos(player.rot.x), -sin(player.rot.x),
-									  -cos(player.rot.y) * cos(player.rot.x)};
-
-			agl::Vec<float, 3> blockPos = player.pos + agl::Vec<float, 3>{0, 1.8, 0};
-
-			selected = blockPos;
-			front	 = blockPos;
-
-			while (true)
-			{
-				if (blockPos.x >= world.size.x || blockPos.x < 0 || blockPos.y >= world.size.y || blockPos.y < 0 ||
-					blockPos.z >= world.size.z || blockPos.z < 0)
-				{
-					selected = front;
-					break;
-				}
-
-				if (world.getAtPos(blockPos))
-				{
-					selected = blockPos;
-					break;
-				}
-
-				blockPos += dir / 100;
-
-				if (selected == agl::Vec<int, 3>(blockPos))
-				{
-				}
-				else
-				{
-					front	 = selected;
-					selected = blockPos;
-				}
-			}
-		}
-
-		static unsigned int pallete = 1;
-
-		if(event.isKeyPressed(agl::Key::F1))
-		{
-			FOREACH(blockDefs)
-			{
-				if(blockDefs[index].name == "cobblestone")
-				{
-					pallete = index;
-					break;
-				}
-			}
-		}
-		if(event.isKeyPressed(agl::Key::F2))
-		{
-			FOREACH(blockDefs)
-			{
-				if(blockDefs[index].name == "oak_planks")
-				{
-					pallete = index;
-					break;
-				}
-			}
-		}
-		if(event.isKeyPressed(agl::Key::F3))
-		{
-			FOREACH(blockDefs)
-			{
-				if(blockDefs[index].name == "stone_bricks")
-				{
-					pallete = index;
-					break;
-				}
-			}
-		}
-
-		if (event.keybuffer.find("e") != std::string::npos && !(front == player.pos))
-		{
-			world.blocks[front.x][front.y][front.z] = pallete;
-		}
-		if (event.keybuffer.find("q") != std::string::npos)
-		{
-			world.blocks[selected.x][selected.y][selected.z] = 0;
 		}
 
 		window.setViewport(0, 0, windowSize.x, windowSize.y);
