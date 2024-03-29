@@ -360,7 +360,7 @@ class CommandBox : public agl::Drawable
 				else if (cmd[i] == '\r')
 				{
 					commit = true;
-					cmd = cmd.substr(0, i);
+					cmd	   = cmd.substr(0, i);
 					break;
 				}
 				else if (cmd[i] < 32 || cmd[i] == 127)
@@ -411,7 +411,7 @@ class CommandBox : public agl::Drawable
 					commit	= false;
 					pallete = i;
 					focused = true;
-					cmd = "";
+					cmd		= "";
 					break;
 				}
 			}
@@ -509,13 +509,27 @@ int main()
 
 	World world({20, 20, 20});
 
-	for (int x = 0; x < 20; x++)
 	{
-		for (int y = 0; y < 20; y++)
+		unsigned int cobblestone = 0;
+
+		for (int i = 0; i < blockDefs.size(); i++)
 		{
-			world.blocks[x][0][y] = true;
-			world.blocks[x][1][y] = true;
-			world.blocks[x][2][y] = true;
+			if (blockDefs[i].name == "cobblestone")
+			{
+				cobblestone = i;
+			}
+		}
+
+		std::cout << blockDefs[cobblestone].name << '\n';
+
+		for (int x = 0; x < 20; x++)
+		{
+			for (int y = 0; y < 20; y++)
+			{
+				world.blocks[x][0][y] = cobblestone;
+				world.blocks[x][1][y] = cobblestone;
+				world.blocks[x][2][y] = cobblestone;
+			}
 		}
 	}
 
@@ -562,53 +576,7 @@ int main()
 
 						Block &type = blockDefs[world.blocks[x][y][z]];
 
-						// y+
-						blankRect.setTextureTranslation(
-							{type.up.x / (float)atlas.size.x, type.up.y / (float)atlas.size.y});
-						blankRect.setSize({1, 1, 1});
-						blankRect.setPosition({x, y + 1, z});
-						blankRect.setRotation({90, 0, 0});
-						window.drawShape(blankRect);
-
-						// y-
-						blankRect.setTextureTranslation(
-							{type.down.x / (float)atlas.size.x, type.down.y / (float)atlas.size.y});
-						blankRect.setSize({1, -1, 1});
-						blankRect.setPosition({x, y, z + 1});
-						blankRect.setRotation({90, 0, 0});
-						window.drawShape(blankRect);
-
-						// z-
-						blankRect.setTextureTranslation(
-							{type.south.x / (float)atlas.size.x, type.south.y / (float)atlas.size.y});
-						blankRect.setSize({-1, -1, 1});
-						blankRect.setPosition({x + 1, y + 1, z});
-						blankRect.setRotation({0, 0, 0});
-						window.drawShape(blankRect);
-
-						// z+
-						blankRect.setTextureTranslation(
-							{type.north.x / (float)atlas.size.x, type.north.y / (float)atlas.size.y});
-						blankRect.setSize({1, -1, 1});
-						blankRect.setPosition({x, y + 1, z + 1});
-						blankRect.setRotation({0, 0, 0});
-						window.drawShape(blankRect);
-
-						// x-
-						blankRect.setTextureTranslation(
-							{type.west.x / (float)atlas.size.x, type.west.y / (float)atlas.size.y});
-						blankRect.setSize({-1, -1, 1});
-						blankRect.setPosition({x + 1, y + 1, z + 1});
-						blankRect.setRotation({0, 90, 0});
-						window.drawShape(blankRect);
-
-						// x+
-						blankRect.setTextureTranslation(
-							{type.east.x / (float)atlas.size.x, type.east.y / (float)atlas.size.y});
-						blankRect.setSize({1, -1, 1});
-						blankRect.setPosition({x, y + 1, z});
-						blankRect.setRotation({0, 90, 0});
-						window.drawShape(blankRect);
+						type.render(window, blankRect, atlas, {x, y, z});
 
 						// if (selected == agl::Vec{x, y, z})
 						// {
@@ -753,6 +721,8 @@ int main()
 				cmdBox.update(event.keybuffer);
 			}
 		}
+
+		std::cout << player.pos << '\n';
 
 		{
 			agl::Mat<float, 4> tran;

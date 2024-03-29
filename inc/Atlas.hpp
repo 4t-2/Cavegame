@@ -38,7 +38,7 @@ class Atlas
 
 				if (size.x != 16 || size.y != 16)
 				{
-					delete[] data;
+					stbi_image_free(data);
 					continue;
 				}
 
@@ -80,7 +80,7 @@ class Atlas
 					offset.y += 16;
 				}
 
-				delete[] blocks[i].first;
+				stbi_image_free(blocks[i].first);
 			}
 
 			texture.genTexture();
