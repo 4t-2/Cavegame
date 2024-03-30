@@ -71,10 +71,10 @@ class Atlas
 					}
 				}
 
-				blockMap["minecraft:block/" + blocks[i].second] = offset;
+				blockMap["block/" + blocks[i].second] = offset;
 
 				offset.x += 16;
-				if (offset.x > sq)
+				if ((offset.x + 16) > sq)
 				{
 					offset.x = 0;
 					offset.y += 16;

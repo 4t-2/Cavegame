@@ -192,7 +192,7 @@ Collision boxCollide(Box b1, Box b2)
 			return {};
 		}
 	}
-	std::cout << "co" << '\n';
+
 	return {{0, 1, 0}, overlap.y};
 }
 
@@ -456,7 +456,7 @@ int main()
 	std::vector<Block> blockDefs;
 	blockDefs.reserve(atlas.blockMap.size() + 1);
 	{
-		blockDefs.emplace_back("air");
+		std::map<std::string, Json::Value> jsonPairs;
 
 		for (auto &entry :
 			 std::filesystem::recursive_directory_iterator("./resources/java/assets/minecraft/models/block/"))
@@ -471,7 +471,12 @@ int main()
 
 			auto s = std::filesystem::path(entry).filename().string();
 
-			blockDefs.emplace_back(root, atlas, s.substr(0, s.length() - 5));
+			jsonPairs[s.substr(0, s.length() - 5)] = root;
+		}
+
+		for (auto &e : jsonPairs)
+		{
+			blockDefs.emplace_back(atlas, e.first, jsonPairs);
 		}
 	}
 
@@ -519,8 +524,6 @@ int main()
 				cobblestone = i;
 			}
 		}
-
-		std::cout << blockDefs[cobblestone].name << '\n';
 
 		for (int x = 0; x < 20; x++)
 		{
@@ -721,8 +724,6 @@ int main()
 				cmdBox.update(event.keybuffer);
 			}
 		}
-
-		std::cout << player.pos << '\n';
 
 		{
 			agl::Mat<float, 4> tran;
