@@ -18,6 +18,11 @@ void main()
 
 	float l = length(norm * vec3(151./255., 84./85., 202./255.));
 
+	if(norm.y < 0)
+	{
+		l = 25./51.;
+	}
+
 	fragColor = vec4(shapeColor * l, 1);
 
     gl_Position = mvp * transform * vec4(position, 1);
