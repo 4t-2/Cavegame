@@ -307,9 +307,9 @@ void updateSelected(Player &player, agl::Vec<int, 3> &selected, agl::Vec<int, 3>
 class CommandBox : public agl::Drawable
 {
 	public:
-		agl::Rectangle &rect;
-		agl::Text	   &text;
-		agl::Texture   &blank;
+		agl::Shape	 &rect;
+		agl::Text	 &text;
+		agl::Texture &blank;
 
 		std::string cmd = "";
 
@@ -323,7 +323,7 @@ class CommandBox : public agl::Drawable
 
 		int pallete = 1;
 
-		CommandBox(agl::Rectangle &rect, agl::Text &text, agl::Texture &blank, std::vector<Block> &blocks,
+		CommandBox(agl::Shape &rect, agl::Text &text, agl::Texture &blank, std::vector<Block> &blocks,
 				   agl::Vec<int, 2> &winSize, bool &focused)
 			: rect(rect), text(text), blank(blank), blocks(blocks), winSize(winSize), focused(focused)
 		{
@@ -439,17 +439,11 @@ int main()
 	agl::Event event;
 	event.setWindow(window);
 
-	agl::Shader simpleShader;
-	simpleShader.loadFromFile("./shader/vert.glsl", "./shader/frag.glsl");
+	agl::Shader worldShader;
+	worldShader.loadFromFile("./shader/vert.glsl", "./shader/frag.glsl");
 
-	agl::Shader gridShader;
-	gridShader.loadFromFile("./shader/gridvert.glsl", "./shader/grid.glsl");
-
-	agl::Shader viteShader;
-	viteShader.loadFromFile("./shader/viteVert.glsl", "./shader/vite.glsl");
-
-	agl::Shader menuShader;
-	menuShader.loadFromFile("./shader/menuVert.glsl", "./shader/menu.glsl");
+	agl::Shader uiShader;
+	uiShader.loadFromFile("./shader/uivert.glsl", "./shader/frag.glsl");
 
 	Atlas atlas("./resources/java/assets/minecraft/textures/block/");
 
@@ -498,10 +492,6 @@ int main()
 	agl::Texture blank;
 	blank.setBlank();
 
-	agl::Texture stoneTexture;
-	stoneTexture.loadFromFile("./resources/bedrock-samples-1.20.70.6/"
-							  "resource_pack/textures/blocks/cobblestone.png");
-
 	agl::Font font;
 	font.setup("./font/font.ttf", 24);
 
@@ -536,8 +526,9 @@ int main()
 		}
 	}
 
-	window.getShaderUniforms(simpleShader);
-	simpleShader.use();
+	window.getShaderUniforms(worldShader);
+	worldShader.use();
+	auto normUniform = worldShader.getUniformLocation("norm");
 
 	bool focused = true;
 
@@ -564,6 +555,22 @@ int main()
 
 		window.clear();
 
+		worldShader.use();
+		window.getShaderUniforms(worldShader);
+		{
+			agl::Mat<float, 4> tran;
+			tran.translate(player.pos * -1 - agl::Vec{0.f, 1.8f, 0.f});
+
+			agl::Mat<float, 4> rot;
+			rot.rotate({agl::radianToDegree(player.rot.x), agl::radianToDegree(player.rot.y),
+						agl::radianToDegree(player.rot.z)});
+
+			agl::Mat<float, 4> proj;
+			proj.perspective(PI / 2, (float)windowSize.x / windowSize.y, 0.1, 100);
+
+			window.updateMvp(proj * rot * tran);
+		}
+
 		for (int x = 0; x < world.blocks.size(); x++)
 		{
 
@@ -579,7 +586,7 @@ int main()
 
 						Block &type = blockDefs[world.blocks[x][y][z]];
 
-						type.render(window, blankRect, atlas, {x, y, z});
+						type.render(window, blankRect, {x, y, z}, normUniform);
 
 						// if (selected == agl::Vec{x, y, z})
 						// {
@@ -598,6 +605,8 @@ int main()
 			proj.ortho(0, windowSize.x, windowSize.y, 0, 0.1, 100);
 			trans.lookAt({0, 0, 10}, {0, 0, 0}, {0, 1, 0});
 
+			uiShader.use();
+			window.getShaderUniforms(uiShader);
 			window.updateMvp(proj * trans);
 
 			blankRect.setTextureScaling({1, 1, 1});
@@ -725,20 +734,6 @@ int main()
 			}
 		}
 
-		{
-			agl::Mat<float, 4> tran;
-			tran.translate(player.pos * -1 - agl::Vec{0.f, 1.8f, 0.f});
-
-			agl::Mat<float, 4> rot;
-			rot.rotate({agl::radianToDegree(player.rot.x), agl::radianToDegree(player.rot.y),
-						agl::radianToDegree(player.rot.z)});
-
-			agl::Mat<float, 4> proj;
-			proj.perspective(PI / 2, (float)windowSize.x / windowSize.y, 0.1, 100);
-
-			window.updateMvp(proj * rot * tran);
-		}
-
 		window.setViewport(0, 0, windowSize.x, windowSize.y);
 	}
 
@@ -750,8 +745,7 @@ int main()
 	eggTexture.deleteTexture();
 	blank.deleteTexture();
 
-	simpleShader.deleteProgram();
-	gridShader.deleteProgram();
+	worldShader.deleteProgram();
 
 	window.close();
 
