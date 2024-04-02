@@ -96,6 +96,7 @@ class World
 	public:
 		std::vector<std::vector<std::vector<unsigned int>>> blocks;
 		agl::Vec<int, 3>									size;
+		unsigned int										air;
 
 		World(agl::Vec<int, 3> size) : size(size)
 		{
@@ -111,13 +112,24 @@ class World
 			}
 		}
 
+		void setAir(std::vector<Block> blocks)
+		{
+			for (int i = 0; i < blocks.size(); i++)
+			{
+				if (blocks[i].name == "air")
+				{
+					air = i;
+				}
+			}
+		}
+
 		bool getAtPos(agl::Vec<int, 3> pos)
 		{
 			if (pos.x >= size.x || pos.x < 0 || pos.y >= size.y || pos.y < 0 || pos.z >= size.z || pos.z < 0)
 			{
 				return false;
 			}
-			return blocks.at(pos.x).at(pos.y).at(pos.z);
+			return blocks.at(pos.x).at(pos.y).at(pos.z) != air;
 		}
 };
 
@@ -406,7 +418,7 @@ class CommandBox : public agl::Drawable
 					offset += text.getHeight() + 10;
 				}
 
-				if (b.name == cmd && commit)
+				if (b.name.substr(0, cmd.size()) == cmd && commit)
 				{
 					commit	= false;
 					pallete = i;
@@ -426,13 +438,15 @@ int main()
 
 	agl::RenderWindow window;
 	window.setup({1920, 1080}, "CaveGame");
-	window.setClearColor({0x6B, 0xFF, 0xFF});
+	window.setClearColor({0x78, 0xA7, 0xFF});
 	window.setFPS(0);
 
 	agl::Vec<int, 2> windowSize;
 
 	window.GLEnable(GL_ALPHA_TEST);
 	glAlphaFunc(GL_GREATER, 0.1f);
+
+	glDepthFunc(GL_LEQUAL);
 
 	window.setSwapInterval(1);
 
@@ -517,18 +531,34 @@ int main()
 
 		for (int x = 0; x < 20; x++)
 		{
-			for (int y = 0; y < 20; y++)
+			for (int z = 0; z < 20; z++)
 			{
-				world.blocks[x][0][y] = cobblestone;
-				world.blocks[x][1][y] = cobblestone;
-				world.blocks[x][2][y] = cobblestone;
+				world.blocks[x][0][z] = cobblestone;
+				world.blocks[x][1][z] = cobblestone;
+				world.blocks[x][2][z] = cobblestone;
+			}
+		}
+
+		for (int x = 0; x < 20; x++)
+		{
+			for (int y = 3; y < 20; y++)
+			{
+				for (int z = 0; z < 20; z++)
+				{
+					world.blocks[x][y][z] = world.air;
+				}
 			}
 		}
 	}
 
 	window.getShaderUniforms(worldShader);
 	worldShader.use();
-	auto normUniform = worldShader.getUniformLocation("norm");
+	auto		normUniform = worldShader.getUniformLocation("norm");
+	AOUnfiforms aou;
+	aou.x0y0 = worldShader.getUniformLocation("x0y0");
+	aou.x1y0 = worldShader.getUniformLocation("x1y0");
+	aou.x0y1 = worldShader.getUniformLocation("x0y1");
+	aou.x1y1 = worldShader.getUniformLocation("x1y1");
 
 	bool focused = true;
 
@@ -578,7 +608,7 @@ int main()
 			{
 				for (int z = 0; z < world.blocks[x][y].size(); z++)
 				{
-					if (world.blocks[x][y][z])
+					if (world.getAtPos({x, y, z}))
 					{
 						blankRect.setColor(agl::Color::White);
 						blankRect.setTexture(&atlas.texture);
@@ -586,7 +616,7 @@ int main()
 
 						Block &type = blockDefs[world.blocks[x][y][z]];
 
-						type.render(window, blankRect, {x, y, z}, normUniform);
+						type.render(window, blankRect, {x, y, z}, normUniform, aou, Grid3{world.blocks, world.air});
 
 						// if (selected == agl::Vec{x, y, z})
 						// {
@@ -599,6 +629,7 @@ int main()
 
 		glDisable(GL_DEPTH_TEST);
 
+		if(!event.isKeyPressed(agl::Key::F1))
 		{
 			agl::Mat4f proj;
 			agl::Mat4f trans;

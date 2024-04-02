@@ -2,11 +2,37 @@
 #include <AGL/agl.hpp>
 #include <json/json.h>
 
+class Block;
+
+struct Grid3
+{
+		std::vector<std::vector<std::vector<unsigned int>>> &data;
+		unsigned int										 air;
+
+		int exists(agl::Vec<int, 3> pos)
+		{
+			if (pos.x >= data.size() || pos.x < 0 || pos.y >= data[0].size() || pos.y < 0 ||
+				pos.z >= data[0][0].size() || pos.z < 0)
+			{
+				return false;
+			}
+			return (data[pos.x][pos.y][pos.z] != air);
+		}
+};
+
 struct Face
 {
 		agl::Vec<float, 2> uv	  = {0, 0};
 		agl::Vec<float, 2> size	  = {0, 0};
 		bool			   exists = false;
+};
+
+struct AOUnfiforms
+{
+		int x0y0;
+		int x1y0;
+		int x0y1;
+		int x1y1;
 };
 
 struct Element
@@ -61,8 +87,40 @@ struct Element
 			COOLSHIT(west)
 		}
 
-		void render(agl::RenderWindow &window, agl::Shape &blankRect, agl::Vec<int, 3> pos, int id)
+		static float AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int, 3> acc1, agl::Vec<int, 3> acc2,
+							  Grid3 &surround)
 		{
+			bool cornerTouch = surround.exists(pos + norm + acc1 + acc2);
+			bool lineTouch	 = surround.exists(pos + norm + acc1);
+			bool oppo		 = surround.exists(pos + norm + acc2);
+
+			if (lineTouch && oppo)
+			{
+				return 0.6;
+			}
+			else if ((lineTouch && cornerTouch) || (oppo && cornerTouch))
+			{
+				return 0.4;
+			}
+			else if (lineTouch || oppo || cornerTouch)
+			{
+				return 0.2;
+			}
+			else
+			{
+				return 0;
+			}
+		}
+
+		void render(agl::RenderWindow &window, agl::Shape &blankRect, agl::Vec<int, 3> pos, int id, AOUnfiforms aou,
+					Grid3 &surround)
+		{
+			// 67/84 1 0.7976190476
+			// 25/42 2 0.5952380952
+			// 25/63 corner 0.3968253968
+			// 67/84 outie 0.7976190476
+			// all in .2s
+
 			// y+
 			if (up.exists)
 			{
@@ -71,7 +129,19 @@ struct Element
 				blankRect.setSize({size.x, size.z, 0});
 				blankRect.setPosition(agl::Vec<float, 3>{pos.x, pos.y + size.y, pos.z} + offset);
 				blankRect.setRotation({90, 0, 0});
+
 				agl::Shader::setUniform(id, agl::Vec<float, 3>{0, 1, 0});
+
+				float x0y0 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, surround);
+				float x1y0 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, surround);
+				float x0y1 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, surround);
+				float x1y1 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, surround);
+
+				glUniform1f(aou.x0y0, x0y0);
+				glUniform1f(aou.x1y0, x1y0);
+				glUniform1f(aou.x0y1, x0y1);
+				glUniform1f(aou.x1y1, x1y1);
+
 				window.drawShape(blankRect);
 			}
 
@@ -81,9 +151,21 @@ struct Element
 				blankRect.setTextureTranslation(down.uv);
 				blankRect.setTextureScaling(down.size);
 				blankRect.setSize({size.x, -size.z, 0});
-				blankRect.setPosition(agl::Vec<float, 3>{pos.x, pos.y, pos.z + 1} + offset);
+				blankRect.setPosition(agl::Vec<float, 3>{pos.x, pos.y, pos.z + size.z} + offset);
 				blankRect.setRotation({90, 0, 0});
+
 				agl::Shader::setUniform(id, agl::Vec<float, 3>{0, -1, 0});
+
+				float x0y0 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, surround);
+				float x1y0 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, surround);
+				float x0y1 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, surround);
+				float x1y1 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, surround);
+
+				glUniform1f(aou.x0y0, x0y0);
+				glUniform1f(aou.x1y0, x1y0);
+				glUniform1f(aou.x0y1, x0y1);
+				glUniform1f(aou.x1y1, x1y1);
+
 				window.drawShape(blankRect);
 			}
 
@@ -95,7 +177,19 @@ struct Element
 				blankRect.setSize({-size.x, -size.y, 0});
 				blankRect.setPosition(agl::Vec<float, 3>{pos.x + size.x, pos.y + size.y, pos.z} + offset);
 				blankRect.setRotation({0, 0, 0});
+
 				agl::Shader::setUniform(id, agl::Vec<float, 3>{0, 0, -1});
+
+				float x0y0 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, surround);
+				float x1y0 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, surround);
+				float x0y1 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, surround);
+				float x1y1 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, surround);
+
+				glUniform1f(aou.x0y0, x0y0);
+				glUniform1f(aou.x1y0, x1y0);
+				glUniform1f(aou.x0y1, x0y1);
+				glUniform1f(aou.x1y1, x1y1);
+
 				window.drawShape(blankRect);
 			}
 
@@ -107,7 +201,19 @@ struct Element
 				blankRect.setSize({size.x, -size.y, 0});
 				blankRect.setPosition(agl::Vec<float, 3>{pos.x, pos.y + size.y, pos.z + size.z} + offset);
 				blankRect.setRotation({0, 0, 0});
+
 				agl::Shader::setUniform(id, agl::Vec<float, 3>{0, 0, 1});
+
+				float x0y0 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, surround);
+				float x1y0 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, surround);
+				float x0y1 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, surround);
+				float x1y1 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, surround);
+
+				glUniform1f(aou.x0y0, x0y0);
+				glUniform1f(aou.x1y0, x1y0);
+				glUniform1f(aou.x0y1, x0y1);
+				glUniform1f(aou.x1y1, x1y1);
+
 				window.drawShape(blankRect);
 			}
 
@@ -119,7 +225,19 @@ struct Element
 				blankRect.setSize({size.z, -size.y, 0});
 				blankRect.setPosition(agl::Vec<float, 3>{pos.x, pos.y + size.y, pos.z} + offset);
 				blankRect.setRotation({0, 90, 0});
+
 				agl::Shader::setUniform(id, agl::Vec<float, 3>{-1, 0, 0});
+
+				float x0y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, surround);
+				float x1y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, surround);
+				float x0y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, surround);
+				float x1y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, surround);
+
+				glUniform1f(aou.x0y0, x0y0);
+				glUniform1f(aou.x1y0, x1y0);
+				glUniform1f(aou.x0y1, x0y1);
+				glUniform1f(aou.x1y1, x1y1);
+
 				window.drawShape(blankRect);
 			}
 
@@ -131,7 +249,19 @@ struct Element
 				blankRect.setSize({-size.z, -size.y, 0});
 				blankRect.setPosition(agl::Vec<float, 3>{pos.x + size.x, pos.y + size.y, pos.z + size.z} + offset);
 				blankRect.setRotation({0, 90, 0});
+
 				agl::Shader::setUniform(id, agl::Vec<float, 3>{1, 0, 0});
+
+				float x0y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, surround);
+				float x1y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, surround);
+				float x0y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, surround);
+				float x1y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, surround);
+
+				glUniform1f(aou.x0y0, x0y0);
+				glUniform1f(aou.x1y0, x1y0);
+				glUniform1f(aou.x0y1, x0y1);
+				glUniform1f(aou.x1y1, x1y1);
+
 				window.drawShape(blankRect);
 			}
 		}
@@ -152,6 +282,8 @@ class Block
 			inherit.emplace_back(jsonPairs[name]);
 
 			Json::Value expanded;
+
+			std::cout << name << '\n';
 
 			while (inherit.back().isMember("parent"))
 			{
@@ -217,11 +349,12 @@ class Block
 			}
 		}
 
-		void render(agl::RenderWindow &window, agl::Shape &blankRect, agl::Vec<int, 3> pos, int id)
+		void render(agl::RenderWindow &window, agl::Shape &blankRect, agl::Vec<int, 3> pos, int id, AOUnfiforms aou,
+					Grid3 surround)
 		{
 			for (auto &e : elements)
 			{
-				e.render(window, blankRect, pos, id);
+				e.render(window, blankRect, pos, id, aou, surround);
 			}
 		}
 

@@ -9,6 +9,11 @@ uniform vec3 shapeColor;
 uniform mat4 textureTransform;
 uniform vec3 norm;
 
+uniform float x0y0;
+uniform float x1y0;
+uniform float x0y1;
+uniform float x1y1;
+
 out vec2 UVcoord;
 out vec4 fragColor;
 
@@ -23,7 +28,13 @@ void main()
 		l = 25./51.;
 	}
 
-	fragColor = vec4(shapeColor * l, 1);
+	float ao = 1;
+	ao -= (1 - position.x) * (1 - position.y) * x0y0;
+	ao -= position.x * position.y * x1y1;
+	ao -= position.x * (1 - position.y) * x1y0;
+	ao -= (1 - position.x) * position.y * x0y1;
+
+	fragColor = vec4(shapeColor * l * ao, 1);
 
     gl_Position = mvp * transform * vec4(position, 1);
 }
