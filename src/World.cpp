@@ -54,7 +54,6 @@ void World::loadFromFile(std::string dir, std::map<std::string, int> &strToId)
 			}
 
 			enkiNBTRewind(&stream);
-			break;
 		}
 		enkiNBTFreeAllocations(&stream);
 	}

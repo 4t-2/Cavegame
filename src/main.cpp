@@ -78,7 +78,7 @@ class Player
 {
 	public:
 		agl::Vec<float, 3> pos = {1, 150, 1};
-		agl::Vec<float, 3> rot = {0, 0, 0};
+		agl::Vec<float, 3> rot = {0, PI / 2, 0};
 		agl::Vec<float, 3> vel = {0, 0, 0};
 
 		float friction = BLCKFRC;
@@ -547,6 +547,8 @@ int main()
 	Player player;
 
 	hideCursor(window);
+	
+	std::cout << "entering" << '\n';
 
 	while (!event.windowClose())
 	{
