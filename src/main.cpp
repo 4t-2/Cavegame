@@ -14,6 +14,7 @@
 
 #include "../inc/Atlas.hpp"
 #include "../inc/Block.hpp"
+#include "../inc/World.hpp"
 
 #define GRAVACC (-.08 / 9)
 #define WALKACC (1 / 3.)
@@ -76,7 +77,7 @@ agl::Vec<float, 2> getCursorScenePosition(agl::Vec<float, 2> cursorWinPos, agl::
 class Player
 {
 	public:
-		agl::Vec<float, 3> pos = {1, 5, 1};
+		agl::Vec<float, 3> pos = {1, 150, 1};
 		agl::Vec<float, 3> rot = {0, 0, 0};
 		agl::Vec<float, 3> vel = {0, 0, 0};
 
@@ -88,48 +89,6 @@ class Player
 
 		void update()
 		{
-		}
-};
-
-class World
-{
-	public:
-		std::vector<std::vector<std::vector<unsigned int>>> blocks;
-		agl::Vec<int, 3>									size;
-		unsigned int										air;
-
-		World(agl::Vec<int, 3> size) : size(size)
-		{
-			blocks.resize(size.x);
-
-			for (auto &b : blocks)
-			{
-				b.resize(size.y);
-				for (auto &b : b)
-				{
-					b.resize(size.z);
-				}
-			}
-		}
-
-		void setAir(std::vector<Block> blocks)
-		{
-			for (int i = 0; i < blocks.size(); i++)
-			{
-				if (blocks[i].name == "air")
-				{
-					air = i;
-				}
-			}
-		}
-
-		bool getAtPos(agl::Vec<int, 3> pos)
-		{
-			if (pos.x >= size.x || pos.x < 0 || pos.y >= size.y || pos.y < 0 || pos.z >= size.z || pos.z < 0)
-			{
-				return false;
-			}
-			return blocks.at(pos.x).at(pos.y).at(pos.z) != air;
 		}
 };
 
@@ -462,6 +421,8 @@ int main()
 	Atlas atlas("./resources/java/assets/minecraft/textures/block/");
 
 	std::vector<Block> blockDefs;
+	std::map<std::string, int> blockNameToDef;
+
 	blockDefs.reserve(atlas.blockMap.size() + 1);
 	{
 		std::map<std::string, Json::Value> jsonPairs;
@@ -484,6 +445,7 @@ int main()
 
 		for (auto &e : jsonPairs)
 		{
+			blockNameToDef["minecraft:" + e.first] = blockDefs.size();
 			blockDefs.emplace_back(atlas, e.first, jsonPairs);
 		}
 	}
@@ -516,40 +478,44 @@ int main()
 	agl::Rectangle blankRect;
 	blankRect.setTexture(&blank);
 
-	World world({20, 20, 20});
+	World world;
+	world.setBasics(blockDefs);
+	world.loadFromFile("world/region/r.0.0.mca", blockNameToDef);
 
-	{
-		unsigned int cobblestone = 0;
+	// {
+	// 	unsigned int cobblestone = 0;
+	//
+	// 	for (int i = 0; i < blockDefs.size(); i++)
+	// 	{
+	// 		if (blockDefs[i].name == "cobblestone")
+	// 		{
+	// 			cobblestone = i;
+	// 		}
+	// 	}
+	//
+	// 	for (int x = 0; x < 20; x++)
+	// 	{
+	// 		for (int z = 0; z < 20; z++)
+	// 		{
+	// 			world.blocks[x][0][z] = cobblestone;
+	// 			world.blocks[x][1][z] = cobblestone;
+	// 			world.blocks[x][2][z] = cobblestone;
+	// 		}
+	// 	}
+	//
+	// 	for (int x = 0; x < 20; x++)
+	// 	{
+	// 		for (int y = 3; y < 20; y++)
+	// 		{
+	// 			for (int z = 0; z < 20; z++)
+	// 			{
+	// 				world.blocks[x][y][z] = world.air;
+	// 			}
+	// 		}
+	// 	}
+	// }
 
-		for (int i = 0; i < blockDefs.size(); i++)
-		{
-			if (blockDefs[i].name == "cobblestone")
-			{
-				cobblestone = i;
-			}
-		}
-
-		for (int x = 0; x < 20; x++)
-		{
-			for (int z = 0; z < 20; z++)
-			{
-				world.blocks[x][0][z] = cobblestone;
-				world.blocks[x][1][z] = cobblestone;
-				world.blocks[x][2][z] = cobblestone;
-			}
-		}
-
-		for (int x = 0; x < 20; x++)
-		{
-			for (int y = 3; y < 20; y++)
-			{
-				for (int z = 0; z < 20; z++)
-				{
-					world.blocks[x][y][z] = world.air;
-				}
-			}
-		}
-	}
+	// return 0;
 
 	window.getShaderUniforms(worldShader);
 	worldShader.use();
@@ -563,6 +529,8 @@ int main()
 	bool focused = true;
 
 	CommandBox cmdBox(blankRect, text, blank, blockDefs, windowSize, focused);
+
+	cmdBox.pallete = world.cobblestone;
 
 	agl::Vec<int, 3> selected;
 	agl::Vec<int, 3> front;
@@ -629,7 +597,7 @@ int main()
 
 		glDisable(GL_DEPTH_TEST);
 
-		if(!event.isKeyPressed(agl::Key::F1))
+		if (!event.isKeyPressed(agl::Key::F1))
 		{
 			agl::Mat4f proj;
 			agl::Mat4f trans;
@@ -745,7 +713,7 @@ int main()
 			}
 			if (lclis.ls == ListenState::First && focused)
 			{
-				world.blocks[selected.x][selected.y][selected.z] = 0;
+				world.blocks[selected.x][selected.y][selected.z] = world.air;
 			}
 
 			if (event.isKeyPressed(agl::Key::T))

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Atlas.hpp"
 #include <AGL/agl.hpp>
 #include <json/json.h>
