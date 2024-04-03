@@ -420,6 +420,12 @@ int main()
 
 	Atlas atlas("./resources/java/assets/minecraft/textures/block/");
 
+	Image tintTextureGrass;
+	tintTextureGrass.load("./resources/java/assets/minecraft/textures/colormap/grass.png");
+
+	Image tintTextureFoliage;
+	tintTextureFoliage.load("./resources/java/assets/minecraft/textures/colormap/foliage.png");
+
 	std::vector<Block> blockDefs;
 	std::map<std::string, int> blockNameToDef;
 
@@ -446,7 +452,7 @@ int main()
 		for (auto &e : jsonPairs)
 		{
 			blockNameToDef["minecraft:" + e.first] = blockDefs.size();
-			blockDefs.emplace_back(atlas, e.first, jsonPairs);
+			blockDefs.emplace_back(atlas, e.first, jsonPairs, tintTextureGrass, tintTextureFoliage);
 		}
 	}
 
@@ -743,6 +749,9 @@ int main()
 	creatureExtraTexture.deleteTexture();
 	eggTexture.deleteTexture();
 	blank.deleteTexture();
+
+	tintTextureGrass.free();
+	tintTextureFoliage.free();
 
 	worldShader.deleteProgram();
 

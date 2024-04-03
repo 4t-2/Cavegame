@@ -8,6 +8,33 @@
 
 #include <map>
 
+static int dimtorange(agl::Vec<int, 2> dim, agl::Vec<int, 2> size, int period)
+{
+	return dim.x * period + (dim.y * size.x * period);
+}
+
+class Image
+{
+	public:
+		agl::Vec<int, 2> size;
+		agl::Color		*data;
+
+		void load(std::string path)
+		{
+			data = (agl::Color *)stbi_load(path.c_str(), &size.x, &size.y, 0, 4);
+		}
+
+		agl::Color at(agl::Vec<int, 2> pos)
+		{
+			return data[dimtorange(pos, size, 1)];
+		}
+
+		void free()
+		{
+			stbi_image_free((char *)data);
+		}
+};
+
 class Atlas
 {
 	public:
@@ -16,11 +43,6 @@ class Atlas
 		agl::Vec<int, 2> size;
 
 		std::map<std::string, agl::Vec<int, 2>> blockMap;
-
-		static int dimtorange(agl::Vec<int, 2> dim, agl::Vec<int, 2> size, int period)
-		{
-			return dim.x * 4 + (dim.y * size.x * 4);
-		}
 
 		Atlas(std::string path)
 		{

@@ -24,9 +24,10 @@ struct Grid3
 
 struct Face
 {
-		agl::Vec<float, 2> uv	  = {0, 0};
-		agl::Vec<float, 2> size	  = {0, 0};
-		bool			   exists = false;
+		agl::Vec<float, 2> uv		 = {0, 0};
+		agl::Vec<float, 2> size		 = {0, 0};
+		bool			   exists	 = false;
+		Image			  *tintImage = nullptr;
 };
 
 struct AOUnfiforms
@@ -49,7 +50,8 @@ struct Element
 		agl::Vec<float, 3> size;
 		agl::Vec<float, 3> offset;
 
-		Element(Json::Value &val, std::map<std::string, agl::Vec<int, 2>> &texHash, agl::Vec<int, 2> atlasSize)
+		Element(Json::Value &val, std::map<std::string, agl::Vec<int, 2>> &texHash, agl::Vec<int, 2> atlasSize,
+				Image &tintGrass, Image &tintFoliage, std::string &name)
 		{
 			agl::Vec<float, 3> from;
 			agl::Vec<float, 3> to;
@@ -79,6 +81,17 @@ struct Element
 		dir.size.y = v["uv"].get(Json::ArrayIndex(3), 16).asInt() - v["uv"].get(Json::ArrayIndex(1), 0).asInt(); \
 		dir.size.x /= atlasSize.x;                                                                               \
 		dir.size.y /= atlasSize.y;                                                                               \
+		if (v.isMember("tintindex"))                                                                             \
+		{                                                                                                        \
+			if (name.find("grass") != std::string::npos)                                                         \
+			{                                                                                                    \
+				dir.tintImage = &tintGrass;                                                                      \
+			}                                                                                                    \
+			else                                                                                                 \
+			{                                                                                                    \
+				dir.tintImage = &tintFoliage;                                                                    \
+			}                                                                                                    \
+		}                                                                                                        \
 	}
 
 			COOLSHIT(up)
@@ -126,6 +139,17 @@ struct Element
 			// y+
 			if (up.exists)
 			{
+				if (up.tintImage != nullptr)
+				{
+					blankRect.setColor(
+						up.tintImage->at({(up.tintImage->size.x - 1) - ((up.tintImage->size.x - 1) * 0.8),
+										  (up.tintImage->size.y - 1) * 0.4}));
+				}
+				else
+				{
+					blankRect.setColor(agl::Color::White);
+				}
+
 				blankRect.setTextureTranslation(up.uv);
 				blankRect.setTextureScaling(up.size);
 				blankRect.setSize({size.x, size.z, 0});
@@ -150,6 +174,17 @@ struct Element
 			// y-
 			if (down.exists)
 			{
+				if (down.tintImage != nullptr)
+				{
+					blankRect.setColor(
+						down.tintImage->at({(down.tintImage->size.x - 1) - ((down.tintImage->size.x - 1) * 0.8),
+											(down.tintImage->size.y - 1) * 0.4}));
+				}
+				else
+				{
+					blankRect.setColor(agl::Color::White);
+				}
+
 				blankRect.setTextureTranslation(down.uv);
 				blankRect.setTextureScaling(down.size);
 				blankRect.setSize({size.x, -size.z, 0});
@@ -173,6 +208,16 @@ struct Element
 
 			if (south.exists)
 			{
+				if (south.tintImage != nullptr)
+				{
+					blankRect.setColor(
+						south.tintImage->at({(south.tintImage->size.x - 1) - ((south.tintImage->size.x - 1) * 0.8),
+											 (south.tintImage->size.y - 1) * 0.4}));
+				}
+				else
+				{
+					blankRect.setColor(agl::Color::White);
+				}
 				// z-
 				blankRect.setTextureTranslation(south.uv);
 				blankRect.setTextureScaling(south.size);
@@ -198,6 +243,16 @@ struct Element
 			// z+
 			if (north.exists)
 			{
+				if (north.tintImage != nullptr)
+				{
+					blankRect.setColor(
+						north.tintImage->at({(north.tintImage->size.x - 1) - ((north.tintImage->size.x - 1) * 0.8),
+											 (north.tintImage->size.y - 1) * 0.4}));
+				}
+				else
+				{
+					blankRect.setColor(agl::Color::White);
+				}
 				blankRect.setTextureTranslation(north.uv);
 				blankRect.setTextureScaling(north.size);
 				blankRect.setSize({size.x, -size.y, 0});
@@ -222,6 +277,16 @@ struct Element
 			// x-
 			if (west.exists)
 			{
+				if (west.tintImage != nullptr)
+				{
+					blankRect.setColor(
+						west.tintImage->at({(west.tintImage->size.x - 1) - ((west.tintImage->size.x - 1) * 0.8),
+											(west.tintImage->size.y - 1) * 0.4}));
+				}
+				else
+				{
+					blankRect.setColor(agl::Color::White);
+				}
 				blankRect.setTextureTranslation(west.uv);
 				blankRect.setTextureScaling(west.size);
 				blankRect.setSize({size.z, -size.y, 0});
@@ -246,6 +311,17 @@ struct Element
 			// x+
 			if (east.exists)
 			{
+				if (east.tintImage != nullptr)
+				{
+					blankRect.setColor(
+						east.tintImage->at({(east.tintImage->size.x - 1) - ((east.tintImage->size.x - 1) * 0.8),
+											(east.tintImage->size.y - 1) * 0.4}));
+				}
+				else
+				{
+					blankRect.setColor(agl::Color::White);
+				}
+
 				blankRect.setTextureTranslation(east.uv);
 				blankRect.setTextureScaling(east.size);
 				blankRect.setSize({-size.z, -size.y, 0});
@@ -276,7 +352,8 @@ class Block
 
 		std::vector<Element> elements;
 
-		Block(Atlas &atlas, std::string name, std::map<std::string, Json::Value> &jsonPairs)
+		Block(Atlas &atlas, std::string name, std::map<std::string, Json::Value> &jsonPairs, Image &tintGrass,
+			  Image &tintFoliage)
 		{
 			this->name = name;
 
@@ -285,7 +362,7 @@ class Block
 
 			Json::Value expanded;
 
-			std::cout << name << '\n';
+			// std::cout << name << '\n';
 
 			while (inherit.back().isMember("parent"))
 			{
@@ -347,7 +424,7 @@ class Block
 
 			for (auto &val : expanded["elements"])
 			{
-				elements.emplace_back(val, texHash, atlas.size);
+				elements.emplace_back(val, texHash, atlas.size, tintGrass, tintFoliage, name);
 			}
 		}
 
