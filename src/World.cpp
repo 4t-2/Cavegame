@@ -32,7 +32,7 @@ void World::loadFromFile(std::string dir, std::map<std::string, int> &strToId)
 					agl::Vec		 sectionOrigin = conv(enkiGetChunkSectionOrigin(&aChunk, section));
 					enkiMICoordinate sPos;
 
-					if(sectionOrigin.x >= 16*8 || sectionOrigin.z >= 16*8)
+					if(sectionOrigin.x >= 16*4 || sectionOrigin.z >= 16*4)
 					{
 						continue;
 					}

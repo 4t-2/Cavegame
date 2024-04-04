@@ -26,12 +26,13 @@
 class World
 {
 	public:
-		std::vector<std::vector<std::vector<unsigned int>>> blocks;
+		std::vector<std::vector<std::vector<BlockData>>> blocks;
 		agl::Vec<int, 3>									size;
 		unsigned int										air;
 		unsigned int										cobblestone;
+		unsigned int										leaves;
 
-		World(agl::Vec<int, 3> size = {16*8, 385, 16*8}) : size(size)
+		World(agl::Vec<int, 3> size = {16*4, 385, 16*4}) : size(size)
 		{
 			blocks.resize(size.x);
 
@@ -52,6 +53,7 @@ class World
 				if (blocks[i].name == "air")
 				{
 					air = i;
+					break;
 				}
 			}
 			for (int i = 0; i < blocks.size(); i++)
@@ -59,6 +61,15 @@ class World
 				if (blocks[i].name == "cobblestone")
 				{
 					cobblestone = i;
+					break;
+				}
+			}
+			for (int i = 0; i < blocks.size(); i++)
+			{
+				if (blocks[i].name == "oak_leaves")
+				{
+					leaves = i;
+					break;
 				}
 			}
 
@@ -68,7 +79,7 @@ class World
 				{
 					for (auto &x : x)
 					{
-						x = air;
+						x.type = air;
 					}
 				}
 			}
@@ -80,13 +91,13 @@ class World
 			{
 				return false;
 			}
-			return blocks.at(pos.x).at(pos.y).at(pos.z) != air;
+			return blocks.at(pos.x).at(pos.y).at(pos.z).type != air;
 		}
 
 		void loadFromFile(std::string dir, std::map<std::string, int> &strToId);
 
 		unsigned int &get(agl::Vec<int, 3> pos)
 		{
-			return blocks[pos.x][pos.y][pos.z];
+			return blocks[pos.x][pos.y][pos.z].type;
 		}
 };

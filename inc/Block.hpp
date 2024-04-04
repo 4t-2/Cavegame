@@ -4,12 +4,48 @@
 #include <AGL/agl.hpp>
 #include <json/json.h>
 
-class Block;
+struct Covered
+{
+		bool up		= true;
+		bool down	= true;
+		bool north	= true;
+		bool east	= true;
+		bool south	= true;
+		bool west	= true;
+		bool nonvis = true;
+};
+
+struct AmOcCacheCoords
+{
+		float x0y0 = 1;
+		float x0y1 = 1;
+		float x1y0 = 1;
+		float x1y1 = 1;
+};
+
+struct AmOcCache
+{
+		AmOcCacheCoords up;
+		AmOcCacheCoords down;
+		AmOcCacheCoords north;
+		AmOcCacheCoords east;
+		AmOcCacheCoords south;
+		AmOcCacheCoords west;
+};
+
+struct BlockData
+{
+		bool		 needUpdate = true;
+		unsigned int type;
+
+		Covered	  exposed;
+		AmOcCache aoc;
+};
 
 struct Grid3
 {
-		std::vector<std::vector<std::vector<unsigned int>>> &data;
-		unsigned int										 air;
+		std::vector<std::vector<std::vector<BlockData>>> &data;
+		unsigned int									  air;
 
 		int exists(agl::Vec<int, 3> pos)
 		{
@@ -18,7 +54,7 @@ struct Grid3
 			{
 				return false;
 			}
-			return (data[pos.x][pos.y][pos.z] != air);
+			return (data[pos.x][pos.y][pos.z].type != air);
 		}
 };
 
@@ -28,6 +64,7 @@ struct Face
 		agl::Vec<float, 2> size		 = {0, 0};
 		bool			   exists	 = false;
 		Image			  *tintImage = nullptr;
+		bool			   cull		 = false;
 };
 
 struct AOUnfiforms
@@ -92,6 +129,14 @@ struct Element
 				dir.tintImage = &tintFoliage;                                                                    \
 			}                                                                                                    \
 		}                                                                                                        \
+		if (v.isMember("cullface"))                                                                              \
+		{                                                                                                        \
+			dir.cull = true;                                                                                     \
+		}                                                                                                        \
+		else                                                                                                     \
+		{                                                                                                        \
+			dir.cull = false;                                                                                    \
+		}                                                                                                        \
 	}
 
 			COOLSHIT(up)
@@ -128,7 +173,7 @@ struct Element
 		}
 
 		void render(agl::RenderWindow &window, agl::Shape &blankRect, agl::Vec<int, 3> pos, int id, AOUnfiforms aou,
-					Grid3 &surround)
+					BlockData &bd)
 		{
 			// 67/84 1 0.7976190476
 			// 25/42 2 0.5952380952
@@ -136,8 +181,14 @@ struct Element
 			// 67/84 outie 0.7976190476
 			// all in .2s
 
+			// e c
+			// 0 0 1
+			// 0 1 0
+			// 1 0 1
+			// 1 1 1
+
 			// y+
-			if (up.exists)
+			if (up.exists && !(bd.exposed.up == false && up.cull == true))
 			{
 				if (up.tintImage != nullptr)
 				{
@@ -158,21 +209,16 @@ struct Element
 
 				agl::Shader::setUniform(id, agl::Vec<float, 3>{0, 1, 0});
 
-				float x0y0 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, surround);
-				float x1y0 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, surround);
-				float x0y1 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, surround);
-				float x1y1 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, surround);
-
-				glUniform1f(aou.x0y0, x0y0);
-				glUniform1f(aou.x1y0, x1y0);
-				glUniform1f(aou.x0y1, x0y1);
-				glUniform1f(aou.x1y1, x1y1);
+				glUniform1f(aou.x0y0, bd.aoc.up.x0y0);
+				glUniform1f(aou.x1y0, bd.aoc.up.x1y0);
+				glUniform1f(aou.x0y1, bd.aoc.up.x0y1);
+				glUniform1f(aou.x1y1, bd.aoc.up.x1y1);
 
 				window.drawShape(blankRect);
 			}
 
 			// y-
-			if (down.exists)
+			if (down.exists && !(bd.exposed.down == false && down.cull == true))
 			{
 				if (down.tintImage != nullptr)
 				{
@@ -193,20 +239,15 @@ struct Element
 
 				agl::Shader::setUniform(id, agl::Vec<float, 3>{0, -1, 0});
 
-				float x0y0 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, surround);
-				float x1y0 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, surround);
-				float x0y1 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, surround);
-				float x1y1 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, surround);
-
-				glUniform1f(aou.x0y0, x0y0);
-				glUniform1f(aou.x1y0, x1y0);
-				glUniform1f(aou.x0y1, x0y1);
-				glUniform1f(aou.x1y1, x1y1);
+				glUniform1f(aou.x0y0, bd.aoc.down.x0y0);
+				glUniform1f(aou.x1y0, bd.aoc.down.x1y0);
+				glUniform1f(aou.x0y1, bd.aoc.down.x0y1);
+				glUniform1f(aou.x1y1, bd.aoc.down.x1y1);
 
 				window.drawShape(blankRect);
 			}
 
-			if (south.exists)
+			if (south.exists && !(bd.exposed.south == false && south.cull == true))
 			{
 				if (south.tintImage != nullptr)
 				{
@@ -227,21 +268,16 @@ struct Element
 
 				agl::Shader::setUniform(id, agl::Vec<float, 3>{0, 0, -1});
 
-				float x0y0 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, surround);
-				float x1y0 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, surround);
-				float x0y1 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, surround);
-				float x1y1 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, surround);
-
-				glUniform1f(aou.x0y0, x0y0);
-				glUniform1f(aou.x1y0, x1y0);
-				glUniform1f(aou.x0y1, x0y1);
-				glUniform1f(aou.x1y1, x1y1);
+				glUniform1f(aou.x0y0, bd.aoc.south.x0y0);
+				glUniform1f(aou.x1y0, bd.aoc.south.x1y0);
+				glUniform1f(aou.x0y1, bd.aoc.south.x0y1);
+				glUniform1f(aou.x1y1, bd.aoc.south.x1y1);
 
 				window.drawShape(blankRect);
 			}
 
 			// z+
-			if (north.exists)
+			if (north.exists && !(bd.exposed.north == false && north.cull == true))
 			{
 				if (north.tintImage != nullptr)
 				{
@@ -261,21 +297,16 @@ struct Element
 
 				agl::Shader::setUniform(id, agl::Vec<float, 3>{0, 0, 1});
 
-				float x0y0 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, surround);
-				float x1y0 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, surround);
-				float x0y1 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, surround);
-				float x1y1 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, surround);
-
-				glUniform1f(aou.x0y0, x0y0);
-				glUniform1f(aou.x1y0, x1y0);
-				glUniform1f(aou.x0y1, x0y1);
-				glUniform1f(aou.x1y1, x1y1);
+				glUniform1f(aou.x0y0, bd.aoc.north.x0y0);
+				glUniform1f(aou.x1y0, bd.aoc.north.x1y0);
+				glUniform1f(aou.x0y1, bd.aoc.north.x0y1);
+				glUniform1f(aou.x1y1, bd.aoc.north.x1y1);
 
 				window.drawShape(blankRect);
 			}
 
 			// x-
-			if (west.exists)
+			if (west.exists && !(bd.exposed.west == false && west.cull == true))
 			{
 				if (west.tintImage != nullptr)
 				{
@@ -295,21 +326,16 @@ struct Element
 
 				agl::Shader::setUniform(id, agl::Vec<float, 3>{-1, 0, 0});
 
-				float x0y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, surround);
-				float x1y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, surround);
-				float x0y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, surround);
-				float x1y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, surround);
-
-				glUniform1f(aou.x0y0, x0y0);
-				glUniform1f(aou.x1y0, x1y0);
-				glUniform1f(aou.x0y1, x0y1);
-				glUniform1f(aou.x1y1, x1y1);
+				glUniform1f(aou.x0y0, bd.aoc.west.x0y0);
+				glUniform1f(aou.x1y0, bd.aoc.west.x1y0);
+				glUniform1f(aou.x0y1, bd.aoc.west.x0y1);
+				glUniform1f(aou.x1y1, bd.aoc.west.x1y1);
 
 				window.drawShape(blankRect);
 			}
 
 			// x+
-			if (east.exists)
+			if (east.exists && !(bd.exposed.east == false && east.cull == true))
 			{
 				if (east.tintImage != nullptr)
 				{
@@ -330,15 +356,10 @@ struct Element
 
 				agl::Shader::setUniform(id, agl::Vec<float, 3>{1, 0, 0});
 
-				float x0y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, surround);
-				float x1y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, surround);
-				float x0y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, surround);
-				float x1y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, surround);
-
-				glUniform1f(aou.x0y0, x0y0);
-				glUniform1f(aou.x1y0, x1y0);
-				glUniform1f(aou.x0y1, x0y1);
-				glUniform1f(aou.x1y1, x1y1);
+				glUniform1f(aou.x0y0, bd.aoc.east.x0y0);
+				glUniform1f(aou.x1y0, bd.aoc.east.x1y0);
+				glUniform1f(aou.x0y1, bd.aoc.east.x0y1);
+				glUniform1f(aou.x1y1, bd.aoc.east.x1y1);
 
 				window.drawShape(blankRect);
 			}
@@ -429,11 +450,11 @@ class Block
 		}
 
 		void render(agl::RenderWindow &window, agl::Shape &blankRect, agl::Vec<int, 3> pos, int id, AOUnfiforms aou,
-					Grid3 surround)
+					BlockData &bd)
 		{
 			for (auto &e : elements)
 			{
-				e.render(window, blankRect, pos, id, aou, surround);
+				e.render(window, blankRect, pos, id, aou, bd);
 			}
 		}
 

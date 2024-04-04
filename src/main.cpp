@@ -74,6 +74,30 @@ agl::Vec<float, 2> getCursorScenePosition(agl::Vec<float, 2> cursorWinPos, agl::
 	return ((cursorWinPos - (winSize * .5)) * winScale) + cameraPos;
 }
 
+float AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int, 3> acc1, agl::Vec<int, 3> acc2, World &world)
+{
+	bool cornerTouch = world.getAtPos(pos + norm + acc1 + acc2);
+	bool lineTouch	 = world.getAtPos(pos + norm + acc1);
+	bool oppo		 = world.getAtPos(pos + norm + acc2);
+
+	if (lineTouch && oppo)
+	{
+		return 0.6;
+	}
+	else if ((lineTouch && cornerTouch) || (oppo && cornerTouch))
+	{
+		return 0.4;
+	}
+	else if (lineTouch || oppo || cornerTouch)
+	{
+		return 0.2;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
 class Player
 {
 	public:
@@ -426,7 +450,7 @@ int main()
 	Image tintTextureFoliage;
 	tintTextureFoliage.load("./resources/java/assets/minecraft/textures/colormap/foliage.png");
 
-	std::vector<Block> blockDefs;
+	std::vector<Block>		   blockDefs;
 	std::map<std::string, int> blockNameToDef;
 
 	blockDefs.reserve(atlas.blockMap.size() + 1);
@@ -547,7 +571,7 @@ int main()
 	Player player;
 
 	hideCursor(window);
-	
+
 	std::cout << "entering" << '\n';
 
 	while (!event.windowClose())
@@ -577,27 +601,164 @@ int main()
 			window.updateMvp(proj * rot * tran);
 		}
 
-		for (int x = 0; x < world.blocks.size(); x++)
+		for (int x = 0; x < world.size.x; x++)
 		{
 
-			for (int y = 0; y < world.blocks[x].size(); y++)
+			for (int y = 0; y < world.size.y; y++)
 			{
-				for (int z = 0; z < world.blocks[x][y].size(); z++)
+				for (int z = 0; z < world.size.z; z++)
 				{
-					if (world.getAtPos({x, y, z}))
+					auto &block = world.blocks[x][y][z];
+
+					agl::Vec<int, 3> pos = {x, y, z};
+
+					if(!world.getAtPos(pos))
+					{
+						continue;
+					}
+
+					if (block.needUpdate)
+					{
+						block.exposed.nonvis = true;
+
+						if (y + 1 >= world.size.y)
+						{
+							block.exposed.up = false;
+						}
+						else if (world.blocks[x][y + 1][z].type == world.air ||
+								 world.blocks[x][y + 1][z].type == world.leaves)
+						{
+							block.exposed.nonvis = false;
+							block.exposed.up	 = true;
+
+							block.aoc.up.x0y0 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
+							block.aoc.up.x1y0 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, world);
+							block.aoc.up.x0y1 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
+							block.aoc.up.x1y1 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, world);
+						}
+						else
+						{
+							block.exposed.up = false;
+						}
+
+						if (y - 1 <= 0)
+						{
+							block.exposed.down = false;
+						}
+						else if (world.blocks[x][y - 1][z].type == world.air ||
+								 world.blocks[x][y - 1][z].type == world.leaves)
+						{
+							block.exposed.nonvis = false;
+							block.exposed.down	 = true;
+
+							block.aoc.down.x0y0 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
+							block.aoc.down.x1y0 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, world);
+							block.aoc.down.x0y1 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
+							block.aoc.down.x1y1 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, world);
+						}
+						else
+						{
+							block.exposed.down = false;
+						}
+
+						// z
+
+						if (z + 1 >= world.size.z)
+						{
+							block.exposed.north = false;
+						}
+						else if (world.blocks[x][y][z + 1].type == world.air ||
+								 world.blocks[x][y][z + 1].type == world.leaves)
+						{
+							block.exposed.nonvis = false;
+							block.exposed.north	 = true;
+
+							block.aoc.north.x0y0 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, world);
+							block.aoc.north.x1y0 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, world);
+							block.aoc.north.x0y1 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, world);
+							block.aoc.north.x1y1 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, world);
+						}
+						else
+						{
+							block.exposed.north = false;
+						}
+
+						if (z - 1 <= 0)
+						{
+							block.exposed.south = false;
+						}
+						else if (world.blocks[x][y][z - 1].type == world.air ||
+								 world.blocks[x][y][z - 1].type == world.leaves)
+						{
+							block.exposed.nonvis = false;
+							block.exposed.south	 = true;
+
+							block.aoc.south.x0y0 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, world);
+							block.aoc.south.x1y0 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, world);
+							block.aoc.south.x0y1 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, world);
+							block.aoc.south.x1y1 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, world);
+						}
+						else
+						{
+							block.exposed.south = false;
+						}
+
+						// x
+
+						if (x + 1 >= world.size.x)
+						{
+							block.exposed.east = false;
+						}
+						else if (world.blocks[x + 1][y][z].type == world.air ||
+								 world.blocks[x + 1][y][z].type == world.leaves)
+						{
+							block.exposed.nonvis = false;
+							block.exposed.east	 = true;
+
+							block.aoc.east.x0y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
+							block.aoc.east.x1y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
+							block.aoc.east.x0y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
+							block.aoc.east.x1y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
+						}
+						else
+						{
+							block.exposed.east = false;
+						}
+
+						if (x - 1 <= 0)
+						{
+							block.exposed.west = false;
+						}
+						else if (world.blocks[x - 1][y][z].type == world.air ||
+								 world.blocks[x - 1][y][z].type == world.leaves)
+						{
+							block.exposed.nonvis = false;
+							block.exposed.west	 = true;
+
+							block.aoc.west.x0y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
+							block.aoc.west.x1y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
+							block.aoc.west.x0y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
+							block.aoc.west.x1y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
+						}
+						else
+						{
+							block.exposed.west = false;
+						}
+
+						block.needUpdate = false;
+
+						std::cout << "dwadwad" << '\n';
+					}
+
+					if (!block.exposed.nonvis)
 					{
 						blankRect.setColor(agl::Color::White);
 						blankRect.setTexture(&atlas.texture);
 						blankRect.setTextureScaling({16 / (float)atlas.size.x, 16 / (float)atlas.size.y});
 
-						Block &type = blockDefs[world.blocks[x][y][z]];
+						Block &type = blockDefs[world.blocks[x][y][z].type];
 
-						type.render(window, blankRect, {x, y, z}, normUniform, aou, Grid3{world.blocks, world.air});
-
-						// if (selected == agl::Vec{x, y, z})
-						// {
-						// 	cube.setColor(agl::Color::Green);
-						// }
+						type.render(window, blankRect, pos, normUniform, aou, block);
 					}
 				}
 			}
@@ -717,11 +878,11 @@ int main()
 
 			if (rclis.ls == ListenState::First && !(front == player.pos))
 			{
-				world.blocks[front.x][front.y][front.z] = cmdBox.pallete;
+				world.blocks[front.x][front.y][front.z].type = cmdBox.pallete;
 			}
 			if (lclis.ls == ListenState::First && focused)
 			{
-				world.blocks[selected.x][selected.y][selected.z] = world.air;
+				world.blocks[selected.x][selected.y][selected.z].type = world.air;
 			}
 
 			if (event.isKeyPressed(agl::Key::T))
