@@ -31,7 +31,7 @@ class World
 		unsigned int										air;
 		unsigned int										cobblestone;
 
-		World(agl::Vec<int, 3> size = {16*32, 385, 16*32}) : size(size)
+		World(agl::Vec<int, 3> size = {16*8, 385, 16*8}) : size(size)
 		{
 			blocks.resize(size.x);
 

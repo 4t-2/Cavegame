@@ -32,6 +32,11 @@ void World::loadFromFile(std::string dir, std::map<std::string, int> &strToId)
 					agl::Vec		 sectionOrigin = conv(enkiGetChunkSectionOrigin(&aChunk, section));
 					enkiMICoordinate sPos;
 
+					if(sectionOrigin.x >= 16*8 || sectionOrigin.z >= 16*8)
+					{
+						continue;
+					}
+
 					for (sPos.y = 0; sPos.y < ENKI_MI_SIZE_SECTIONS; ++sPos.y)
 					{
 						for (sPos.z = 0; sPos.z < ENKI_MI_SIZE_SECTIONS; ++sPos.z)
@@ -45,6 +50,11 @@ void World::loadFromFile(std::string dir, std::map<std::string, int> &strToId)
 								auto strName = std::string(enkiString.pStrNotNullTerminated, enkiString.size);
 
 								agl::Vec<int, 3> blockPos = (conv(sPos) + sectionOrigin + agl::Vec{0, 64, 0});
+
+								if(strName == "minecraft:water")
+								{
+									strName = "minecraft:blue_concrete";
+								}
 
 								get(blockPos) = strToId[strName];
 							}
