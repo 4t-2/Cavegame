@@ -612,7 +612,7 @@ int main()
 
 					agl::Vec<int, 3> pos = {x, y, z};
 
-					if(!world.getAtPos(pos))
+					if (!world.getAtPos(pos))
 					{
 						continue;
 					}
@@ -746,8 +746,6 @@ int main()
 						}
 
 						block.needUpdate = false;
-
-						std::cout << "dwadwad" << '\n';
 					}
 
 					if (!block.exposed.nonvis)
@@ -878,11 +876,75 @@ int main()
 
 			if (rclis.ls == ListenState::First && !(front == player.pos))
 			{
-				world.blocks[front.x][front.y][front.z].type = cmdBox.pallete;
+				BlockData &bd = world.blocks[front.x][front.y][front.z];
+
+				bd.type = cmdBox.pallete;
+
+				world.blocks[front.x - 1][front.y + 1][front.z - 1].needUpdate = true;
+				world.blocks[front.x - 1][front.y + 1][front.z].needUpdate	   = true;
+				world.blocks[front.x - 1][front.y + 1][front.z + 1].needUpdate = true;
+				world.blocks[front.x + 0][front.y + 1][front.z - 1].needUpdate = true;
+				world.blocks[front.x + 0][front.y + 1][front.z].needUpdate	   = true;
+				world.blocks[front.x + 0][front.y + 1][front.z + 1].needUpdate = true;
+				world.blocks[front.x + 1][front.y + 1][front.z - 1].needUpdate = true;
+				world.blocks[front.x + 1][front.y + 1][front.z].needUpdate	   = true;
+				world.blocks[front.x + 1][front.y + 1][front.z + 1].needUpdate = true;
+
+				world.blocks[front.x - 1][front.y + 0][front.z - 1].needUpdate = true;
+				world.blocks[front.x - 1][front.y + 0][front.z].needUpdate	   = true;
+				world.blocks[front.x - 1][front.y + 0][front.z + 1].needUpdate = true;
+				world.blocks[front.x + 0][front.y + 0][front.z - 1].needUpdate = true;
+				world.blocks[front.x + 0][front.y + 0][front.z].needUpdate	   = true;
+				world.blocks[front.x + 0][front.y + 0][front.z + 1].needUpdate = true;
+				world.blocks[front.x + 1][front.y + 0][front.z - 1].needUpdate = true;
+				world.blocks[front.x + 1][front.y + 0][front.z].needUpdate	   = true;
+				world.blocks[front.x + 1][front.y + 0][front.z + 1].needUpdate = true;
+
+				world.blocks[front.x - 1][front.y - 1][front.z - 1].needUpdate = true;
+				world.blocks[front.x - 1][front.y - 1][front.z].needUpdate	   = true;
+				world.blocks[front.x - 1][front.y - 1][front.z + 1].needUpdate = true;
+				world.blocks[front.x + 0][front.y - 1][front.z - 1].needUpdate = true;
+				world.blocks[front.x + 0][front.y - 1][front.z].needUpdate	   = true;
+				world.blocks[front.x + 0][front.y - 1][front.z + 1].needUpdate = true;
+				world.blocks[front.x + 1][front.y - 1][front.z - 1].needUpdate = true;
+				world.blocks[front.x + 1][front.y - 1][front.z].needUpdate	   = true;
+				world.blocks[front.x + 1][front.y - 1][front.z + 1].needUpdate = true;
 			}
 			if (lclis.ls == ListenState::First && focused)
 			{
-				world.blocks[selected.x][selected.y][selected.z].type = world.air;
+				BlockData &bd = world.blocks[selected.x][selected.y][selected.z];
+
+				bd.type = world.air;
+
+				world.blocks[selected.x - 1][selected.y + 1][selected.z - 1].needUpdate = true;
+				world.blocks[selected.x - 1][selected.y + 1][selected.z].needUpdate		= true;
+				world.blocks[selected.x - 1][selected.y + 1][selected.z + 1].needUpdate = true;
+				world.blocks[selected.x + 0][selected.y + 1][selected.z - 1].needUpdate = true;
+				world.blocks[selected.x + 0][selected.y + 1][selected.z].needUpdate		= true;
+				world.blocks[selected.x + 0][selected.y + 1][selected.z + 1].needUpdate = true;
+				world.blocks[selected.x + 1][selected.y + 1][selected.z - 1].needUpdate = true;
+				world.blocks[selected.x + 1][selected.y + 1][selected.z].needUpdate		= true;
+				world.blocks[selected.x + 1][selected.y + 1][selected.z + 1].needUpdate = true;
+
+				world.blocks[selected.x - 1][selected.y + 0][selected.z - 1].needUpdate = true;
+				world.blocks[selected.x - 1][selected.y + 0][selected.z].needUpdate		= true;
+				world.blocks[selected.x - 1][selected.y + 0][selected.z + 1].needUpdate = true;
+				world.blocks[selected.x + 0][selected.y + 0][selected.z - 1].needUpdate = true;
+				world.blocks[selected.x + 0][selected.y + 0][selected.z].needUpdate		= true;
+				world.blocks[selected.x + 0][selected.y + 0][selected.z + 1].needUpdate = true;
+				world.blocks[selected.x + 1][selected.y + 0][selected.z - 1].needUpdate = true;
+				world.blocks[selected.x + 1][selected.y + 0][selected.z].needUpdate		= true;
+				world.blocks[selected.x + 1][selected.y + 0][selected.z + 1].needUpdate = true;
+
+				world.blocks[selected.x - 1][selected.y - 1][selected.z - 1].needUpdate = true;
+				world.blocks[selected.x - 1][selected.y - 1][selected.z].needUpdate		= true;
+				world.blocks[selected.x - 1][selected.y - 1][selected.z + 1].needUpdate = true;
+				world.blocks[selected.x + 0][selected.y - 1][selected.z - 1].needUpdate = true;
+				world.blocks[selected.x + 0][selected.y - 1][selected.z].needUpdate		= true;
+				world.blocks[selected.x + 0][selected.y - 1][selected.z + 1].needUpdate = true;
+				world.blocks[selected.x + 1][selected.y - 1][selected.z - 1].needUpdate = true;
+				world.blocks[selected.x + 1][selected.y - 1][selected.z].needUpdate		= true;
+				world.blocks[selected.x + 1][selected.y - 1][selected.z + 1].needUpdate = true;
 			}
 
 			if (event.isKeyPressed(agl::Key::T))
