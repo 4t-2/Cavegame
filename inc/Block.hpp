@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Atlas.hpp"
-#include <AGL/agl.hpp>
 #include <json/json.h>
 
 struct Covered
@@ -207,7 +206,7 @@ struct Element
 				blankRect.setPosition(agl::Vec<float, 3>{pos.x, pos.y + size.y, pos.z} + offset);
 				blankRect.setRotation({90, 0, 0});
 
-				agl::Shader::setUniform(id, agl::Vec<float, 3>{0, 1, 0});
+				ax::Program::setUniform(id, agl::Vec<float, 3>{0, 1, 0});
 
 				glUniform1f(aou.x0y0, bd.aoc.up.x0y0);
 				glUniform1f(aou.x1y0, bd.aoc.up.x1y0);
@@ -237,7 +236,7 @@ struct Element
 				blankRect.setPosition(agl::Vec<float, 3>{pos.x, pos.y, pos.z + size.z} + offset);
 				blankRect.setRotation({90, 0, 0});
 
-				agl::Shader::setUniform(id, agl::Vec<float, 3>{0, -1, 0});
+				ax::Program::setUniform(id, agl::Vec<float, 3>{0, -1, 0});
 
 				glUniform1f(aou.x0y0, bd.aoc.down.x0y0);
 				glUniform1f(aou.x1y0, bd.aoc.down.x1y0);
@@ -266,7 +265,7 @@ struct Element
 				blankRect.setPosition(agl::Vec<float, 3>{pos.x + size.x, pos.y + size.y, pos.z} + offset);
 				blankRect.setRotation({0, 0, 0});
 
-				agl::Shader::setUniform(id, agl::Vec<float, 3>{0, 0, -1});
+				ax::Program::setUniform(id, agl::Vec<float, 3>{0, 0, -1});
 
 				glUniform1f(aou.x0y0, bd.aoc.south.x0y0);
 				glUniform1f(aou.x1y0, bd.aoc.south.x1y0);
@@ -295,7 +294,7 @@ struct Element
 				blankRect.setPosition(agl::Vec<float, 3>{pos.x, pos.y + size.y, pos.z + size.z} + offset);
 				blankRect.setRotation({0, 0, 0});
 
-				agl::Shader::setUniform(id, agl::Vec<float, 3>{0, 0, 1});
+				ax::Program::setUniform(id, agl::Vec<float, 3>{0, 0, 1});
 
 				glUniform1f(aou.x0y0, bd.aoc.north.x0y0);
 				glUniform1f(aou.x1y0, bd.aoc.north.x1y0);
@@ -324,7 +323,7 @@ struct Element
 				blankRect.setPosition(agl::Vec<float, 3>{pos.x, pos.y + size.y, pos.z} + offset);
 				blankRect.setRotation({0, 90, 0});
 
-				agl::Shader::setUniform(id, agl::Vec<float, 3>{-1, 0, 0});
+				ax::Program::setUniform(id, agl::Vec<float, 3>{-1, 0, 0});
 
 				glUniform1f(aou.x0y0, bd.aoc.west.x0y0);
 				glUniform1f(aou.x1y0, bd.aoc.west.x1y0);
@@ -354,7 +353,7 @@ struct Element
 				blankRect.setPosition(agl::Vec<float, 3>{pos.x + size.x, pos.y + size.y, pos.z + size.z} + offset);
 				blankRect.setRotation({0, 90, 0});
 
-				agl::Shader::setUniform(id, agl::Vec<float, 3>{1, 0, 0});
+				ax::Program::setUniform(id, agl::Vec<float, 3>{1, 0, 0});
 
 				glUniform1f(aou.x0y0, bd.aoc.east.x0y0);
 				glUniform1f(aou.x1y0, bd.aoc.east.x1y0);

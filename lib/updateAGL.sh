@@ -1,9 +1,9 @@
-rm -vrf AGL
+rm -vrf AXIS
 
-git clone https://github.com/4t-2/AGL
+git clone ../../AXIS
 
-mv AGL/AGL AGLrenamed
+mv AXIS/AXIS A
 
-rm -vrf AGL
+rm -vrf AXIS
 
-mv AGLrenamed AGL
+mv A AXIS

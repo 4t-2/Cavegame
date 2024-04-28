@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 project(CaveGame)
 
 file(GLOB_RECURSE SRC ./src/*.cpp)
-file(GLOB_RECURSE AGL ./lib/AGL/src/*.cpp)
+file(GLOB_RECURSE AX ./lib/AXIS/src/*.cpp)
 file(GLOB_RECURSE PHY ./lib/PHY/src/*.cpp)
 file(GLOB_RECURSE IN ./lib/IN/src/*.cpp)
 file(GLOB_RECURSE MI ./lib/MI/*.c)
@@ -31,7 +31,7 @@ elseif(CMAKE_BUILD_TYPE MATCHES Release)
 	message(STATUS "Building with release flags")
 endif()
 
-add_executable(CaveGame ${SRC} ${AGL} ${PHY} ${IN} ${MI})
+add_executable(CaveGame ${SRC} ${AX} ${PHY} ${IN} ${MI})
 
 if(LINUX)
 	target_link_libraries(CaveGame -lX11 -lGL -lGLEW -lSOIL -lfreetype -ljsoncpp)

@@ -1,4 +1,4 @@
-#include <AGL/agl.hpp>
+#include <AXIS/ax.hpp>
 
 #include <cctype>
 #include <chrono>
@@ -436,11 +436,11 @@ int main()
 	agl::Event event;
 	event.setWindow(window);
 
-	agl::Shader worldShader;
-	worldShader.loadFromFile("./shader/vert.glsl", "./shader/frag.glsl");
+	ax::Program worldShader(ax::Shader("./shader/frag.glsl", GL_FRAGMENT_SHADER),
+							ax::Shader("./shader/vert.glsl", GL_VERTEX_SHADER));
 
-	agl::Shader uiShader;
-	uiShader.loadFromFile("./shader/uivert.glsl", "./shader/frag.glsl");
+	ax::Program uiShader(ax::Shader("./shader/frag.glsl", GL_FRAGMENT_SHADER),
+						 ax::Shader("./shader/uivert.glsl", GL_VERTEX_SHADER));
 
 	Atlas atlas("./resources/java/assets/minecraft/textures/block/");
 
@@ -574,6 +574,12 @@ int main()
 
 	std::cout << "entering" << '\n';
 
+	agl::Cuboid cube;
+	cube.setTexture(&blank);
+	cube.setPosition({0, 50, 0});
+	cube.setSize({30, 30, 300});
+	cube.setColor(agl::Color::Red);
+
 	while (!event.windowClose())
 	{
 		static int milliDiff = 0;
@@ -585,8 +591,8 @@ int main()
 
 		window.clear();
 
-		worldShader.use();
-		window.getShaderUniforms(worldShader);
+		// worldShader.use();
+		// window.getShaderUniforms(worldShader);
 		{
 			agl::Mat<float, 4> tran;
 			tran.translate(player.pos * -1 - agl::Vec{0.f, 1.8f, 0.f});
@@ -778,7 +784,7 @@ int main()
 			blankRect.setTextureScaling({1, 1, 1});
 			blankRect.setTextureTranslation({0, 0, 0});
 			blankRect.setTexture(&blank);
-			blankRect.setColor(agl::Color::White);
+			blankRect.setColor(agl::Color::Red);
 			blankRect.setRotation({0, 0, 0});
 			blankRect.setSize({3, 3});
 			blankRect.setPosition(windowSize / 2 - blankRect.getSize() / 2);
@@ -796,6 +802,8 @@ int main()
 
 		static int frame = 0;
 		frame++;
+
+		std::cout << player.pos << '\n';
 
 		if (focused)
 		{
@@ -977,8 +985,6 @@ int main()
 
 	tintTextureGrass.free();
 	tintTextureFoliage.free();
-
-	worldShader.deleteProgram();
 
 	window.close();
 

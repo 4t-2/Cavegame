@@ -1,5 +1,5 @@
 #pragma once
-#include <AGL/agl.hpp>
+#include <AXIS/ax.hpp>
 
 float loop(float min, float max, float value);
 

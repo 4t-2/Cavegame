@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../inc/Block.hpp"
-#include <AGL/agl.hpp>
 #include <MI/enkimi.h>
 #include <MI/miniz.h>
 #include <filesystem>
