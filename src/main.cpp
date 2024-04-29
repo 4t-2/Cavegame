@@ -415,6 +415,84 @@ class CommandBox : public agl::Drawable
 		}
 };
 
+class WorldMesh
+{
+	public:
+		agl::GLPrimative glp;
+
+		void set(World &world)
+		{
+			// glp.deleteData();
+			std::vector<float> posList;
+
+			for (int x = 0; x < world.size.x; x++)
+			{
+				for (int y = 0; y < world.size.y; y++)
+				{
+					for (int z = 0; z < world.size.z; z++)
+					{
+						auto &block = world.blocks[x][y][z];
+
+						agl::Vec<int, 3> pos = {x, y, z};
+
+						if (!world.getAtPos(pos))
+						{
+							continue;
+						}
+
+						bool exposed = false;
+
+						if(!world.getAtPos(pos + agl::Vec<int, 3>{1, 0, 0}))
+						{
+							exposed = true;
+						}
+						if(!world.getAtPos(pos + agl::Vec<int, 3>{0, 1, 0}))
+						{
+							exposed = true;
+						}
+						if(!world.getAtPos(pos + agl::Vec<int, 3>{0, 0, 1}))
+						{
+							exposed = true;
+						}
+						if(!world.getAtPos(pos - agl::Vec<int, 3>{1, 0, 0}))
+						{
+							exposed = true;
+						}
+						if(!world.getAtPos(pos - agl::Vec<int, 3>{0, 1, 0}))
+						{
+							exposed = true;
+						}
+						if(!world.getAtPos(pos - agl::Vec<int, 3>{0, 0, 1}))
+						{
+							exposed = true;
+						}
+
+						if (!exposed)
+						{
+							continue;
+						}
+
+						posList.push_back(pos.x);
+						posList.push_back(pos.y);
+						posList.push_back(pos.z);
+					}
+				}
+			}
+
+			std::cout << posList.size() << '\n';
+
+			glp.genBuffers(1);
+			glp.setMode(GL_POINTS);
+			glp.setVertexAmount(posList.size());
+			glp.setBufferData(0, &posList[0], 3);
+		}
+
+		void draw(agl::RenderWindow &rw)
+		{
+			rw.drawPrimative(glp);
+		}
+};
+
 int main()
 {
 	printf("Starting AGL\n");
@@ -436,8 +514,9 @@ int main()
 	agl::Event event;
 	event.setWindow(window);
 
-	ax::Program worldShader(ax::Shader("./shader/frag.glsl", GL_FRAGMENT_SHADER),
-							ax::Shader("./shader/vert.glsl", GL_VERTEX_SHADER));
+	ax::Program worldShader(ax::Shader("./shader/baseVert.glsl", GL_VERTEX_SHADER),
+								ax::Shader("./shader/geom.glsl", GL_GEOMETRY_SHADER),
+								ax::Shader("./shader/frag.glsl", GL_FRAGMENT_SHADER));
 
 	ax::Program uiShader(ax::Shader("./shader/frag.glsl", GL_FRAGMENT_SHADER),
 						 ax::Shader("./shader/uivert.glsl", GL_VERTEX_SHADER));
@@ -547,8 +626,6 @@ int main()
 
 	// return 0;
 
-	window.getShaderUniforms(worldShader);
-	worldShader.use();
 	auto		normUniform = worldShader.getUniformLocation("norm");
 	AOUnfiforms aou;
 	aou.x0y0 = worldShader.getUniformLocation("x0y0");
@@ -574,11 +651,8 @@ int main()
 
 	std::cout << "entering" << '\n';
 
-	agl::Cuboid cube;
-	cube.setTexture(&blank);
-	cube.setPosition({0, 50, 0});
-	cube.setSize({30, 30, 300});
-	cube.setColor(agl::Color::Red);
+	WorldMesh wm;
+	wm.set(world);
 
 	while (!event.windowClose())
 	{
@@ -591,8 +665,8 @@ int main()
 
 		window.clear();
 
-		// worldShader.use();
-		// window.getShaderUniforms(worldShader);
+		worldShader.use();
+		window.getShaderUniforms(worldShader);
 		{
 			agl::Mat<float, 4> tran;
 			tran.translate(player.pos * -1 - agl::Vec{0.f, 1.8f, 0.f});
@@ -607,166 +681,7 @@ int main()
 			window.updateMvp(proj * rot * tran);
 		}
 
-		for (int x = 0; x < world.size.x; x++)
-		{
-
-			for (int y = 0; y < world.size.y; y++)
-			{
-				for (int z = 0; z < world.size.z; z++)
-				{
-					auto &block = world.blocks[x][y][z];
-
-					agl::Vec<int, 3> pos = {x, y, z};
-
-					if (!world.getAtPos(pos))
-					{
-						continue;
-					}
-
-					if (block.needUpdate)
-					{
-						block.exposed.nonvis = true;
-
-						if (y + 1 >= world.size.y)
-						{
-							block.exposed.up = false;
-						}
-						else if (world.blocks[x][y + 1][z].type == world.air ||
-								 world.blocks[x][y + 1][z].type == world.leaves)
-						{
-							block.exposed.nonvis = false;
-							block.exposed.up	 = true;
-
-							block.aoc.up.x0y0 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
-							block.aoc.up.x1y0 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, world);
-							block.aoc.up.x0y1 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
-							block.aoc.up.x1y1 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, world);
-						}
-						else
-						{
-							block.exposed.up = false;
-						}
-
-						if (y - 1 <= 0)
-						{
-							block.exposed.down = false;
-						}
-						else if (world.blocks[x][y - 1][z].type == world.air ||
-								 world.blocks[x][y - 1][z].type == world.leaves)
-						{
-							block.exposed.nonvis = false;
-							block.exposed.down	 = true;
-
-							block.aoc.down.x0y0 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
-							block.aoc.down.x1y0 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, world);
-							block.aoc.down.x0y1 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
-							block.aoc.down.x1y1 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, world);
-						}
-						else
-						{
-							block.exposed.down = false;
-						}
-
-						// z
-
-						if (z + 1 >= world.size.z)
-						{
-							block.exposed.north = false;
-						}
-						else if (world.blocks[x][y][z + 1].type == world.air ||
-								 world.blocks[x][y][z + 1].type == world.leaves)
-						{
-							block.exposed.nonvis = false;
-							block.exposed.north	 = true;
-
-							block.aoc.north.x0y0 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, world);
-							block.aoc.north.x1y0 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, world);
-							block.aoc.north.x0y1 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, world);
-							block.aoc.north.x1y1 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, world);
-						}
-						else
-						{
-							block.exposed.north = false;
-						}
-
-						if (z - 1 <= 0)
-						{
-							block.exposed.south = false;
-						}
-						else if (world.blocks[x][y][z - 1].type == world.air ||
-								 world.blocks[x][y][z - 1].type == world.leaves)
-						{
-							block.exposed.nonvis = false;
-							block.exposed.south	 = true;
-
-							block.aoc.south.x0y0 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, world);
-							block.aoc.south.x1y0 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, world);
-							block.aoc.south.x0y1 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, world);
-							block.aoc.south.x1y1 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, world);
-						}
-						else
-						{
-							block.exposed.south = false;
-						}
-
-						// x
-
-						if (x + 1 >= world.size.x)
-						{
-							block.exposed.east = false;
-						}
-						else if (world.blocks[x + 1][y][z].type == world.air ||
-								 world.blocks[x + 1][y][z].type == world.leaves)
-						{
-							block.exposed.nonvis = false;
-							block.exposed.east	 = true;
-
-							block.aoc.east.x0y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
-							block.aoc.east.x1y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
-							block.aoc.east.x0y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
-							block.aoc.east.x1y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
-						}
-						else
-						{
-							block.exposed.east = false;
-						}
-
-						if (x - 1 <= 0)
-						{
-							block.exposed.west = false;
-						}
-						else if (world.blocks[x - 1][y][z].type == world.air ||
-								 world.blocks[x - 1][y][z].type == world.leaves)
-						{
-							block.exposed.nonvis = false;
-							block.exposed.west	 = true;
-
-							block.aoc.west.x0y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
-							block.aoc.west.x1y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
-							block.aoc.west.x0y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
-							block.aoc.west.x1y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
-						}
-						else
-						{
-							block.exposed.west = false;
-						}
-
-						block.needUpdate = false;
-					}
-
-					if (!block.exposed.nonvis)
-					{
-						blankRect.setColor(agl::Color::White);
-						blankRect.setTexture(&atlas.texture);
-						blankRect.setTextureScaling({16 / (float)atlas.size.x, 16 / (float)atlas.size.y});
-
-						Block &type = blockDefs[world.blocks[x][y][z].type];
-
-						type.render(window, blankRect, pos, normUniform, aou, block);
-					}
-				}
-			}
-		}
+		wm.draw(window);
 
 		glDisable(GL_DEPTH_TEST);
 
@@ -802,8 +717,6 @@ int main()
 
 		static int frame = 0;
 		frame++;
-
-		std::cout << player.pos << '\n';
 
 		if (focused)
 		{
