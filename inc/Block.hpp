@@ -16,10 +16,10 @@ struct Covered
 
 struct AmOcCacheCoords
 {
-		float x0y0 = 1;
-		float x0y1 = 1;
-		float x1y0 = 1;
-		float x1y1 = 1;
+		unsigned int x0y0 = 3;
+		unsigned int x0y1 = 3;
+		unsigned int x1y0 = 3;
+		unsigned int x1y1 = 3;
 };
 
 struct AmOcCache
