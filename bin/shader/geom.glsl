@@ -19,7 +19,7 @@ void createVertex(vec4 offset, float aoc)
 }
 
 int extract(int buf, int size, int start) {
-	return (((1 << size) -1) & (buf << start)) >> start;
+	return (((1 << size) -1) & (buf >> start));
 }
 
 float bufToAoc(int buf)
@@ -31,15 +31,18 @@ float bufToAoc(int buf)
 void main() {
 int a = 1 & 1;
 	int i = floatBitsToInt(gl_in[3].gl_Position.x);
-	float x0y0 = bufToAoc(extract(i, 62, 64));
+	float x0y0 = bufToAoc(extract(i, 2, 0));
+	float x0y1 = bufToAoc(extract(i, 2, 2));
+	float x1y0 = bufToAoc(extract(i, 2, 4));
+	float x1y1 = bufToAoc(extract(i, 2, 6));
 
-	createVertex(vec4(0, 1, 0, 1), 1); // top
-	createVertex(vec4(1, 1, 0, 1), 1);
-	createVertex(vec4(0, 1, 1, 1), 1);
+	createVertex(vec4(0, 1, 0, 1), x0y0); // top
+	createVertex(vec4(1, 1, 0, 1), x1y0);
+	createVertex(vec4(0, 1, 1, 1), x0y1);
 
-	createVertex(vec4(1, 1, 0, 1), 1);
-	createVertex(vec4(0, 1, 1, 1), 1);
-	createVertex(vec4(1, 1, 1, 1), 1);
+	createVertex(vec4(1, 1, 0, 1), x1y0);
+	createVertex(vec4(0, 1, 1, 1), x0y1);
+	createVertex(vec4(1, 1, 1, 1), x1y1);
 
 	EndPrimitive();
 

@@ -588,8 +588,8 @@ class WorldMesh
 							posList.push_back(mat.data[3][1]);
 							posList.push_back(mat.data[3][2]);
 
-							auto extract = [](int buf, int size, int start) { 
-								return (((1 << size) -1) & (buf << start)) >> start;
+							auto extract = [](int buf, int size, int start) {
+								return (((1 << size) - 1) & (buf >> start));
 							};
 
 							auto bufToAoc = [](int buf) {
@@ -603,11 +603,14 @@ class WorldMesh
 								buf |= block.aoc.up.x0y1 << 2;
 								buf |= block.aoc.up.x1y0 << 4;
 								buf |= block.aoc.up.x1y1 << 6;
-								std::cout << bufToAoc(block.aoc.up.x0y0) << '\n';
-								std::cout << bufToAoc(extract(buf, 2, 0)) << '\n';
-								std::cout << '\n';
-								posList.push_back(*(float *)&buf);
+								std::cout << std::bitset<32>(buf) << '\n';
+								std::cout << extract(buf, 2, 0) << '\n';
+								std::cout << extract(buf, 2, 2) << '\n';
+								std::cout << extract(buf, 2, 4) << '\n';
+								std::cout << extract(buf, 2, 6) << '\n';
+								posList.push_back(*(float *)(&buf));
 								posList.push_back(*(float *)(&buf + sizeof(float)));
+								std::cout << '\n';
 							}
 
 							{
