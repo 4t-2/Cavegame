@@ -29,72 +29,114 @@ float bufToAoc(int buf)
 }
 
 void main() {
-int a = 1 & 1;
-	int i = floatBitsToInt(gl_in[3].gl_Position.x);
-	float x0y0 = bufToAoc(extract(i, 2, 0));
-	float x0y1 = bufToAoc(extract(i, 2, 2));
-	float x1y0 = bufToAoc(extract(i, 2, 4));
-	float x1y1 = bufToAoc(extract(i, 2, 6));
 
-	createVertex(vec4(0, 1, 0, 1), x0y0); // top
-	createVertex(vec4(1, 1, 0, 1), x1y0);
-	createVertex(vec4(0, 1, 1, 1), x0y1);
+	{
+		int i = floatBitsToInt(gl_in[3].gl_Position.x);
+		float x0y0 = bufToAoc(extract(i, 2, 0));
+		float x0y1 = bufToAoc(extract(i, 2, 2));
+		float x1y0 = bufToAoc(extract(i, 2, 4));
+		float x1y1 = bufToAoc(extract(i, 2, 6));
+	
+		createVertex(vec4(0, 1, 0, 1), x0y0); // top
+		createVertex(vec4(1, 1, 0, 1), x1y0);
+		createVertex(vec4(0, 1, 1, 1), x0y1);
+	
+		createVertex(vec4(1, 1, 0, 1), x1y0);
+		createVertex(vec4(0, 1, 1, 1), x0y1);
+		createVertex(vec4(1, 1, 1, 1), x1y1);
+	
+		EndPrimitive();
+	}
 
-	createVertex(vec4(1, 1, 0, 1), x1y0);
-	createVertex(vec4(0, 1, 1, 1), x0y1);
-	createVertex(vec4(1, 1, 1, 1), x1y1);
+	{
+		int i = floatBitsToInt(gl_in[3].gl_Position.z);
+		float x0y0 = bufToAoc(extract(i, 2, 0));
+		float x0y1 = bufToAoc(extract(i, 2, 2));
+		float x1y0 = bufToAoc(extract(i, 2, 4));
+		float x1y1 = bufToAoc(extract(i, 2, 6));
+	
+		createVertex(vec4(0, 0, 0, 1), x0y1); // bottom
+		createVertex(vec4(1, 0, 0, 1), x1y1);
+		createVertex(vec4(0, 0, 1, 1), x0y0);
+                                           
+		createVertex(vec4(1, 0, 0, 1), x1y1);
+		createVertex(vec4(0, 0, 1, 1), x0y0);
+		createVertex(vec4(1, 0, 1, 1), x1y0);
+	
+		EndPrimitive();
+	}
 
-	EndPrimitive();
+	{
+		int i = floatBitsToInt(gl_in[4].gl_Position.x);
+		float x0y0 = bufToAoc(extract(i, 2, 0));
+		float x0y1 = bufToAoc(extract(i, 2, 2));
+		float x1y0 = bufToAoc(extract(i, 2, 4));
+		float x1y1 = bufToAoc(extract(i, 2, 6));
+	
+		createVertex(vec4(0, 0, 0, 1), x1y1); // south (-z)
+		createVertex(vec4(1, 0, 0, 1), x0y1);
+		createVertex(vec4(0, 1, 0, 1), x1y0);
+                                           
+		createVertex(vec4(1, 0, 0, 1), x0y1);
+		createVertex(vec4(0, 1, 0, 1), x1y0);
+		createVertex(vec4(1, 1, 0, 1), x0y0);
 
-	createVertex(vec4(0, 0, 0, 1), 1); // bottom
-	createVertex(vec4(1, 0, 0, 1), 1);
-	createVertex(vec4(0, 0, 1, 1), 1);
+		EndPrimitive();
+	}
 
-	createVertex(vec4(1, 0, 0, 1), 1);
-	createVertex(vec4(0, 0, 1, 1), 1);
-	createVertex(vec4(1, 0, 1, 1), 1);
+	{
+		int i = floatBitsToInt(gl_in[4].gl_Position.z);
+		float x0y0 = bufToAoc(extract(i, 2, 0));
+		float x0y1 = bufToAoc(extract(i, 2, 2));
+		float x1y0 = bufToAoc(extract(i, 2, 4));
+		float x1y1 = bufToAoc(extract(i, 2, 6));
+	
+		createVertex(vec4(0, 0, 1, 1), x0y1); // north (+z)
+		createVertex(vec4(1, 0, 1, 1), x1y1);
+		createVertex(vec4(0, 1, 1, 1), x0y0);
+                                           
+		createVertex(vec4(1, 0, 1, 1), x1y1);
+		createVertex(vec4(0, 1, 1, 1), x0y0);
+		createVertex(vec4(1, 1, 1, 1), x1y0);
 
-	EndPrimitive();
+		EndPrimitive();
+	}
 
-	createVertex(vec4(0, 0, 0, 1), 1); // south (-z)
-	createVertex(vec4(1, 0, 0, 1), 1);
-	createVertex(vec4(0, 1, 0, 1), 1);
+	{
+		int i = floatBitsToInt(gl_in[5].gl_Position.x);
+		float x0y0 = bufToAoc(extract(i, 2, 0));
+		float x0y1 = bufToAoc(extract(i, 2, 2));
+		float x1y0 = bufToAoc(extract(i, 2, 4));
+		float x1y1 = bufToAoc(extract(i, 2, 6));
+	
+		createVertex(vec4(0, 0, 0, 1), x0y1); // west (-x)
+		createVertex(vec4(0, 1, 0, 1), x0y0);
+		createVertex(vec4(0, 0, 1, 1), x1y1);
+                                           
+		createVertex(vec4(0, 1, 0, 1), x0y0);
+		createVertex(vec4(0, 0, 1, 1), x1y1);
+		createVertex(vec4(0, 1, 1, 1), x1y0);
 
-	createVertex(vec4(1, 0, 0, 1), 1);
-	createVertex(vec4(0, 1, 0, 1), 1);
-	createVertex(vec4(1, 1, 0, 1), 1);
+		EndPrimitive();
+	}
 
-	EndPrimitive();
+	{
+		int i = floatBitsToInt(gl_in[5].gl_Position.z);
+		float x0y0 = bufToAoc(extract(i, 2, 0));
+		float x0y1 = bufToAoc(extract(i, 2, 2));
+		float x1y0 = bufToAoc(extract(i, 2, 4));
+		float x1y1 = bufToAoc(extract(i, 2, 6));
+	
+		createVertex(vec4(1, 0, 0, 1), x1y1); // east (+x)
+		createVertex(vec4(1, 1, 0, 1), x1y0);
+		createVertex(vec4(1, 0, 1, 1), x0y1);
+                                           
+		createVertex(vec4(1, 1, 0, 1), x1y0);
+		createVertex(vec4(1, 0, 1, 1), x0y1);
+		createVertex(vec4(1, 1, 1, 1), x0y0);
 
-	createVertex(vec4(0, 0, 1, 1), 1); // north (+z)
-	createVertex(vec4(1, 0, 1, 1), 1);
-	createVertex(vec4(0, 1, 1, 1), 1);
-
-	createVertex(vec4(1, 0, 1, 1), 1);
-	createVertex(vec4(0, 1, 1, 1), 1);
-	createVertex(vec4(1, 1, 1, 1), 1);
-
-	EndPrimitive();
-
-	createVertex(vec4(0, 0, 0, 1), 1); // west (-x)
-	createVertex(vec4(0, 1, 0, 1), 1);
-	createVertex(vec4(0, 0, 1, 1), 1);
-
-	createVertex(vec4(0, 1, 0, 1), 1);
-	createVertex(vec4(0, 0, 1, 1), 1);
-	createVertex(vec4(0, 1, 1, 1), 1);
-
-	EndPrimitive();
-
-	createVertex(vec4(1, 0, 0, 1), 1); // east (+x)
-	createVertex(vec4(1, 1, 0, 1), 1);
-	createVertex(vec4(1, 0, 1, 1), 1);
-
-	createVertex(vec4(1, 1, 0, 1), 1);
-	createVertex(vec4(1, 0, 1, 1), 1);
-	createVertex(vec4(1, 1, 1, 1), 1);
-
-   	EndPrimitive();
+   		EndPrimitive();
+	}
 }
 /*
 old
