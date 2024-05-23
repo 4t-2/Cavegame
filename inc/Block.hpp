@@ -59,8 +59,8 @@ struct Grid3
 
 struct Face
 {
-		agl::Vec<float, 2> uv		 = {0, 0};
-		agl::Vec<float, 2> size		 = {0, 0};
+		agl::Vec<int, 2> uv		 = {0, 0};
+		agl::Vec<int, 2> size		 = {0, 0};
 		bool			   exists	 = false;
 		Image			  *tintImage = nullptr;
 		bool			   cull		 = false;
@@ -109,14 +109,10 @@ struct Element
 		auto &v	   = val["faces"][#dir];                                                                         \
 		dir.exists = true;                                                                                       \
 		dir.uv	   = texHash[v["texture"].asString()];                                                           \
-		dir.uv.x /= atlasSize.x;                                                                                 \
-		dir.uv.y /= atlasSize.y;                                                                                 \
-		dir.uv.x += (float)v["uv"].get(Json::ArrayIndex(0), 0).asInt() / atlasSize.x;                            \
-		dir.uv.y += (float)v["uv"].get(Json::ArrayIndex(1), 0).asInt() / atlasSize.y;                            \
+		dir.uv.x += (float)v["uv"].get(Json::ArrayIndex(0), 0).asInt();                            \
+		dir.uv.y += (float)v["uv"].get(Json::ArrayIndex(1), 0).asInt();                            \
 		dir.size.x = v["uv"].get(Json::ArrayIndex(2), 16).asInt() - v["uv"].get(Json::ArrayIndex(0), 0).asInt(); \
 		dir.size.y = v["uv"].get(Json::ArrayIndex(3), 16).asInt() - v["uv"].get(Json::ArrayIndex(1), 0).asInt(); \
-		dir.size.x /= atlasSize.x;                                                                               \
-		dir.size.y /= atlasSize.y;                                                                               \
 		if (v.isMember("tintindex"))                                                                             \
 		{                                                                                                        \
 			if (name.find("grass") != std::string::npos)                                                         \

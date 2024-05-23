@@ -422,249 +422,270 @@ class WorldMesh
 	public:
 		agl::GLPrimative glp;
 
-		void set(World &world, std::vector<Block> &blockDefs)
-		{
-			// glp.deleteData();
-			std::vector<float> posList;
-
-			for (int x = 0; x < world.size.x; x++)
-			{
-				for (int y = 0; y < world.size.y; y++)
-				{
-					for (int z = 0; z < world.size.z; z++)
-					{
-						auto &block = world.blocks[x][y][z];
-
-						agl::Vec<float, 3> pos{x, y, z};
-
-						if (!world.getAtPos(pos))
-						{
-							continue;
-						}
-
-						block.exposed.nonvis = true;
-
-						if (y + 1 >= world.size.y)
-						{
-							block.exposed.up = false;
-						}
-						else if (world.blocks[x][y + 1][z].type == world.air ||
-								 world.blocks[x][y + 1][z].type == world.leaves)
-						{
-							block.exposed.nonvis = false;
-							block.exposed.up	 = true;
-
-							block.aoc.up.x0y0 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
-							block.aoc.up.x1y0 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, world);
-							block.aoc.up.x0y1 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
-							block.aoc.up.x1y1 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, world);
-						}
-						else
-						{
-							block.exposed.up = false;
-						}
-
-						if (y - 1 <= 0)
-						{
-							block.exposed.down = false;
-						}
-						else if (world.blocks[x][y - 1][z].type == world.air ||
-								 world.blocks[x][y - 1][z].type == world.leaves)
-						{
-							block.exposed.nonvis = false;
-							block.exposed.down	 = true;
-
-							block.aoc.down.x0y0 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
-							block.aoc.down.x1y0 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, world);
-							block.aoc.down.x0y1 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
-							block.aoc.down.x1y1 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, world);
-						}
-						else
-						{
-							block.exposed.down = false;
-						}
-
-						// z
-
-						if (z + 1 >= world.size.z)
-						{
-							block.exposed.north = false;
-						}
-						else if (world.blocks[x][y][z + 1].type == world.air ||
-								 world.blocks[x][y][z + 1].type == world.leaves)
-						{
-							block.exposed.nonvis = false;
-							block.exposed.north	 = true;
-
-							block.aoc.north.x0y0 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, world);
-							block.aoc.north.x1y0 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, world);
-							block.aoc.north.x0y1 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, world);
-							block.aoc.north.x1y1 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, world);
-						}
-						else
-						{
-							block.exposed.north = false;
-						}
-
-						if (z - 1 <= 0)
-						{
-							block.exposed.south = false;
-						}
-						else if (world.blocks[x][y][z - 1].type == world.air ||
-								 world.blocks[x][y][z - 1].type == world.leaves)
-						{
-							block.exposed.nonvis = false;
-							block.exposed.south	 = true;
-
-							block.aoc.south.x0y0 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, world);
-							block.aoc.south.x1y0 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, world);
-							block.aoc.south.x0y1 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, world);
-							block.aoc.south.x1y1 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, world);
-						}
-						else
-						{
-							block.exposed.south = false;
-						}
-
-						// x
-
-						if (x + 1 >= world.size.x)
-						{
-							block.exposed.east = false;
-						}
-						else if (world.blocks[x + 1][y][z].type == world.air ||
-								 world.blocks[x + 1][y][z].type == world.leaves)
-						{
-							block.exposed.nonvis = false;
-							block.exposed.east	 = true;
-
-							block.aoc.east.x0y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
-							block.aoc.east.x1y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
-							block.aoc.east.x0y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
-							block.aoc.east.x1y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
-						}
-						else
-						{
-							block.exposed.east = false;
-						}
-
-						if (x - 1 <= 0)
-						{
-							block.exposed.west = false;
-						}
-						else if (world.blocks[x - 1][y][z].type == world.air ||
-								 world.blocks[x - 1][y][z].type == world.leaves)
-						{
-							block.exposed.nonvis = false;
-							block.exposed.west	 = true;
-
-							block.aoc.west.x0y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
-							block.aoc.west.x1y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
-							block.aoc.west.x0y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
-							block.aoc.west.x1y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
-						}
-						else
-						{
-							block.exposed.west = false;
-						}
-
-						if (!block.exposed.nonvis)
-						{
-							agl::Mat4f mat;
-							mat.translate(pos);
-
-							posList.push_back(mat.data[0][0]);
-							posList.push_back(mat.data[0][1]);
-							posList.push_back(mat.data[0][2]);
-							posList.push_back(mat.data[1][0]);
-
-							posList.push_back(mat.data[1][1]);
-							posList.push_back(mat.data[1][2]);
-							posList.push_back(mat.data[2][0]);
-							posList.push_back(mat.data[2][1]);
-
-							posList.push_back(mat.data[2][2]);
-							posList.push_back(mat.data[3][0]);
-							posList.push_back(mat.data[3][1]);
-							posList.push_back(mat.data[3][2]);
-
-							{
-								unsigned long long buf = 0;
-								buf |= block.aoc.up.x0y0 << 0;
-								buf |= block.aoc.up.x0y1 << 2;
-								buf |= block.aoc.up.x1y0 << 4;
-								buf |= block.aoc.up.x1y1 << 6;
-								posList.push_back(*(float *)(&buf));				 // 3 x
-								posList.push_back(*(float *)(&buf + sizeof(float))); // 3 y
-							}
-
-							{
-								unsigned long long buf = 0;
-								buf |= block.aoc.down.x0y0 << 0;
-								buf |= block.aoc.down.x0y1 << 2;
-								buf |= block.aoc.down.x1y0 << 4;
-								buf |= block.aoc.down.x1y1 << 6;
-								posList.push_back(*(float *)&buf);					 // 3 z
-								posList.push_back(*(float *)(&buf + sizeof(float))); // 3 w
-							}
-
-							{
-								unsigned long long buf = 0;
-								buf |= block.aoc.south.x0y0 << 0;
-								buf |= block.aoc.south.x0y1 << 2;
-								buf |= block.aoc.south.x1y0 << 4;
-								buf |= block.aoc.south.x1y1 << 6;
-								posList.push_back(*(float *)&buf);					 // 4 x
-								posList.push_back(*(float *)(&buf + sizeof(float))); // 4 y
-							}
-
-							{
-								unsigned long long buf = 0;
-								buf |= block.aoc.north.x0y0 << 0;
-								buf |= block.aoc.north.x0y1 << 2;
-								buf |= block.aoc.north.x1y0 << 4;
-								buf |= block.aoc.north.x1y1 << 6;
-								posList.push_back(*(float *)&buf);					 // 4 z
-								posList.push_back(*(float *)(&buf + sizeof(float))); // 4 w
-							}
-
-							{
-								unsigned long long buf = 0;
-								buf |= block.aoc.west.x0y0 << 0;
-								buf |= block.aoc.west.x0y1 << 2;
-								buf |= block.aoc.west.x1y0 << 4;
-								buf |= block.aoc.west.x1y1 << 6;
-								posList.push_back(*(float *)&buf);					 // 5 x
-								posList.push_back(*(float *)(&buf + sizeof(float))); // 5 y
-							}
-
-							{
-								unsigned long long buf = 0;
-								buf |= block.aoc.east.x0y0 << 0;
-								buf |= block.aoc.east.x0y1 << 2;
-								buf |= block.aoc.east.x1y0 << 4;
-								buf |= block.aoc.east.x1y1 << 6;
-								posList.push_back(*(float *)&buf);					 // 5 z
-								posList.push_back(*(float *)(&buf + sizeof(float))); // 5 w
-							}
-						}
-					}
-				}
-			}
-
-			std::cout << posList.size() << '\n';
-
-			glp.genBuffers(1);
-			glp.setMode(GL_TRIANGLES_ADJACENCY);
-			glp.setVertexAmount(posList.size() / 4);
-			glp.setBufferData(0, &posList[0], 4);
-		}
+		void set(World &world, std::vector<Block> &blockDefs);
 
 		void draw(agl::RenderWindow &rw)
 		{
 			rw.drawPrimative(glp);
 		}
 };
+
+void WorldMesh::set(World &world, std::vector<Block> &blockDefs)
+{
+	// glp.deleteData();
+	std::vector<float> posList;
+
+	for (int x = 0; x < world.size.x; x++)
+	{
+		for (int y = 0; y < world.size.y; y++)
+		{
+			for (int z = 0; z < world.size.z; z++)
+			{
+				auto &block = world.blocks[x][y][z];
+
+				agl::Vec<float, 3> pos{x, y, z};
+
+				if (!world.getAtPos(pos))
+				{
+					continue;
+				}
+
+				block.exposed.nonvis = true;
+
+				if (y + 1 >= world.size.y)
+				{
+					block.exposed.up = false;
+				}
+				else if (world.blocks[x][y + 1][z].type == world.air || world.blocks[x][y + 1][z].type == world.leaves)
+				{
+					block.exposed.nonvis = false;
+					block.exposed.up	 = true;
+
+					block.aoc.up.x0y0 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
+					block.aoc.up.x1y0 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, world);
+					block.aoc.up.x0y1 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
+					block.aoc.up.x1y1 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, world);
+				}
+				else
+				{
+					block.exposed.up = false;
+				}
+
+				if (y - 1 <= 0)
+				{
+					block.exposed.down = false;
+				}
+				else if (world.blocks[x][y - 1][z].type == world.air || world.blocks[x][y - 1][z].type == world.leaves)
+				{
+					block.exposed.nonvis = false;
+					block.exposed.down	 = true;
+
+					block.aoc.down.x0y0 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
+					block.aoc.down.x1y0 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, world);
+					block.aoc.down.x0y1 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
+					block.aoc.down.x1y1 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, world);
+				}
+				else
+				{
+					block.exposed.down = false;
+				}
+
+				// z
+
+				if (z + 1 >= world.size.z)
+				{
+					block.exposed.north = false;
+				}
+				else if (world.blocks[x][y][z + 1].type == world.air || world.blocks[x][y][z + 1].type == world.leaves)
+				{
+					block.exposed.nonvis = false;
+					block.exposed.north	 = true;
+
+					block.aoc.north.x0y0 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, world);
+					block.aoc.north.x1y0 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, world);
+					block.aoc.north.x0y1 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, world);
+					block.aoc.north.x1y1 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, world);
+				}
+				else
+				{
+					block.exposed.north = false;
+				}
+
+				if (z - 1 <= 0)
+				{
+					block.exposed.south = false;
+				}
+				else if (world.blocks[x][y][z - 1].type == world.air || world.blocks[x][y][z - 1].type == world.leaves)
+				{
+					block.exposed.nonvis = false;
+					block.exposed.south	 = true;
+
+					block.aoc.south.x0y0 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, world);
+					block.aoc.south.x1y0 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, world);
+					block.aoc.south.x0y1 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, world);
+					block.aoc.south.x1y1 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, world);
+				}
+				else
+				{
+					block.exposed.south = false;
+				}
+
+				// x
+
+				if (x + 1 >= world.size.x)
+				{
+					block.exposed.east = false;
+				}
+				else if (world.blocks[x + 1][y][z].type == world.air || world.blocks[x + 1][y][z].type == world.leaves)
+				{
+					block.exposed.nonvis = false;
+					block.exposed.east	 = true;
+
+					block.aoc.east.x0y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
+					block.aoc.east.x1y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
+					block.aoc.east.x0y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
+					block.aoc.east.x1y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
+				}
+				else
+				{
+					block.exposed.east = false;
+				}
+
+				if (x - 1 <= 0)
+				{
+					block.exposed.west = false;
+				}
+				else if (world.blocks[x - 1][y][z].type == world.air || world.blocks[x - 1][y][z].type == world.leaves)
+				{
+					block.exposed.nonvis = false;
+					block.exposed.west	 = true;
+
+					block.aoc.west.x0y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
+					block.aoc.west.x1y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
+					block.aoc.west.x0y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
+					block.aoc.west.x1y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
+				}
+				else
+				{
+					block.exposed.west = false;
+				}
+
+				if (!block.exposed.nonvis)
+				{
+					for (auto &e : blockDefs[block.type].elements)
+					{
+						agl::Mat4f scale;
+						scale.scale(e.size);
+						agl::Mat4f offset;
+						offset.translate(e.offset + pos);
+						agl::Mat4f mat = offset * scale;
+
+						posList.push_back(mat.data[0][0]);
+						posList.push_back(mat.data[0][1]);
+						posList.push_back(mat.data[0][2]);
+						posList.push_back(mat.data[1][0]);
+
+						posList.push_back(mat.data[1][1]);
+						posList.push_back(mat.data[1][2]);
+						posList.push_back(mat.data[2][0]);
+						posList.push_back(mat.data[2][1]);
+
+						posList.push_back(mat.data[2][2]);
+						posList.push_back(mat.data[3][0]);
+						posList.push_back(mat.data[3][1]);
+						posList.push_back(mat.data[3][2]);
+
+						{
+							agl::Color col;
+							if (e.up.tintImage != nullptr)
+							{
+								col = (e.up.tintImage->at(
+									{(e.up.tintImage->size.x - 1) - ((e.up.tintImage->size.x - 1) * 0.8),
+									 (e.up.tintImage->size.y - 1) * 0.4}));
+							}
+							else
+							{
+								col = agl::Color::White;
+							}
+
+							unsigned long long buf = 0;
+							buf |= block.aoc.up.x0y0 << 0;
+							buf |= block.aoc.up.x0y1 << 2;
+							buf |= block.aoc.up.x1y0 << 4;
+							buf |= block.aoc.up.x1y1 << 6;
+							buf |= 0 << 8;													// rot
+							buf |= e.up.uv.x << 10;											// suvx
+							buf |= e.up.uv.y << 20;											// suvy
+							buf |= (long long)e.up.size.x << 30;							// euvx
+							buf |= (long long)e.up.size.y << 34;							// euvy
+							buf |= (long long)(col.r | (col.g << 8) | (col.b << 16)) << 38; // col
+
+							posList.push_back(*(float *)(&buf));				 // 3 x
+							posList.push_back(*(float *)((char*)&buf+ sizeof(float))); // 3 y
+						}
+
+						{
+							unsigned long long buf = 0;
+							buf |= block.aoc.down.x0y0 << 0;
+							buf |= block.aoc.down.x0y1 << 2;
+							buf |= block.aoc.down.x1y0 << 4;
+							buf |= block.aoc.down.x1y1 << 6;
+							posList.push_back(*(float *)(&buf)); // 3 z
+							posList.push_back(*(float *)((char*)&buf+ sizeof(float))); // 3 w
+						}
+
+						{
+							unsigned long long buf = 0;
+							buf |= block.aoc.south.x0y0 << 0;
+							buf |= block.aoc.south.x0y1 << 2;
+							buf |= block.aoc.south.x1y0 << 4;
+							buf |= block.aoc.south.x1y1 << 6;
+							posList.push_back(*(float *)&buf);					 // 4 x
+							posList.push_back(*(float *)((char*)&buf+ sizeof(float))); // 4 y
+						}
+
+						{
+							unsigned long long buf = 0;
+							buf |= block.aoc.north.x0y0 << 0;
+							buf |= block.aoc.north.x0y1 << 2;
+							buf |= block.aoc.north.x1y0 << 4;
+							buf |= block.aoc.north.x1y1 << 6;
+							posList.push_back(*(float *)&buf);					 // 4 z
+							posList.push_back(*(float *)((char*)&buf+ sizeof(float))); // 4 w
+						}
+
+						{
+							unsigned long long buf = 0;
+							buf |= block.aoc.west.x0y0 << 0;
+							buf |= block.aoc.west.x0y1 << 2;
+							buf |= block.aoc.west.x1y0 << 4;
+							buf |= block.aoc.west.x1y1 << 6;
+							posList.push_back(*(float *)&buf);					 // 5 x
+							posList.push_back(*(float *)((char*)&buf+ sizeof(float))); // 5 y
+						}
+
+						{
+							unsigned long long buf = 0;
+							buf |= block.aoc.east.x0y0 << 0;
+							buf |= block.aoc.east.x0y1 << 2;
+							buf |= block.aoc.east.x1y0 << 4;
+							buf |= block.aoc.east.x1y1 << 6;
+							posList.push_back(*(float *)&buf);					 // 5 z
+							posList.push_back(*(float *)((char*)&buf+ sizeof(float))); // 5 w
+						}
+					}
+				}
+			}
+		}
+	}
+
+	std::cout << posList.size() << '\n';
+
+	glp.genBuffers(1);
+	glp.setMode(GL_TRIANGLES_ADJACENCY);
+	glp.setVertexAmount(posList.size() / 4);
+	glp.setBufferData(0, &posList[0], 4);
+}
 
 int main()
 {
@@ -1003,6 +1024,8 @@ int main()
 				world.blocks[front.x + 1][front.y - 1][front.z - 1].needUpdate = true;
 				world.blocks[front.x + 1][front.y - 1][front.z].needUpdate	   = true;
 				world.blocks[front.x + 1][front.y - 1][front.z + 1].needUpdate = true;
+
+				wm.set(world, blockDefs);
 			}
 			if (lclis.ls == ListenState::First && focused)
 			{
@@ -1039,6 +1062,8 @@ int main()
 				world.blocks[selected.x + 1][selected.y - 1][selected.z - 1].needUpdate = true;
 				world.blocks[selected.x + 1][selected.y - 1][selected.z].needUpdate		= true;
 				world.blocks[selected.x + 1][selected.y - 1][selected.z + 1].needUpdate = true;
+
+				wm.set(world, blockDefs);
 			}
 
 			if (event.isKeyPressed(agl::Key::T))
