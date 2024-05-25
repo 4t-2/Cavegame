@@ -34,18 +34,28 @@ void main() {
 
 	{
 		int i = floatBitsToInt(gl_in[3].gl_Position.x);
+		int i2 = floatBitsToInt(gl_in[3].gl_Position.y);
+
 		float x0y0 = bufToAoc(extract(i, 2, 0));
 		float x0y1 = bufToAoc(extract(i, 2, 2));
 		float x1y0 = bufToAoc(extract(i, 2, 4));
 		float x1y1 = bufToAoc(extract(i, 2, 6));
+		float sx = extract(i, 10, 10);
+		float sy = extract(i, 10, 20);
+
+		float ex = extract(i2, 4, 0) + 1;
+		float ey = extract(i2, 4, 4) + 1;
+
+		vec2 sta = vec2(sx / 512.0, sy / 512.0);
+		vec2 siz = vec2(ex / 512.0, ey / 512.0);
+
+		createVertex(vec4(0, 1, 0, 1), x0y0, sta); // top
+		createVertex(vec4(1, 1, 0, 1), x1y0, vec2(sta.x + siz.x, sta.y));
+		createVertex(vec4(0, 1, 1, 1), x0y1, vec2(sta.x, sta.y + siz.y));
 	
-		createVertex(vec4(0, 1, 0, 1), x0y0, vec2(0, 0)); // top
-		createVertex(vec4(1, 1, 0, 1), x1y0, vec2(1, 0));
-		createVertex(vec4(0, 1, 1, 1), x0y1, vec2(0, 1));
-	
-		createVertex(vec4(1, 1, 0, 1), x1y0, vec2(1, 0));
-		createVertex(vec4(0, 1, 1, 1), x0y1, vec2(0, 1));
-		createVertex(vec4(1, 1, 1, 1), x1y1, vec2(1, 1));
+		createVertex(vec4(1, 1, 0, 1), x1y0, vec2(sta.x + siz.x, sta.y));
+		createVertex(vec4(0, 1, 1, 1), x0y1, vec2(sta.x, sta.y + siz.y));
+		createVertex(vec4(1, 1, 1, 1), x1y1, sta + siz);
 	
 		EndPrimitive();
 	}

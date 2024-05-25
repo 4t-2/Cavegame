@@ -608,20 +608,28 @@ void WorldMesh::set(World &world, std::vector<Block> &blockDefs)
 								col = agl::Color::White;
 							}
 
-							unsigned long long buf = 0;
-							buf |= block.aoc.up.x0y0 << 0;
-							buf |= block.aoc.up.x0y1 << 2;
-							buf |= block.aoc.up.x1y0 << 4;
-							buf |= block.aoc.up.x1y1 << 6;
-							buf |= 0 << 8;													// rot
-							buf |= e.up.uv.x << 10;											// suvx
-							buf |= e.up.uv.y << 20;											// suvy
-							buf |= (long long)e.up.size.x << 30;							// euvx
-							buf |= (long long)e.up.size.y << 34;							// euvy
-							buf |= (long long)(col.r | (col.g << 8) | (col.b << 16)) << 38; // col
+							unsigned int buf1 = 0;
+							unsigned int buf2 = 0;
 
-							posList.push_back(*(float *)(&buf));				 // 3 x
-							posList.push_back(*(float *)((char*)&buf+ sizeof(float))); // 3 y
+							buf1 |= block.aoc.up.x0y0 << 0;
+							buf1 |= block.aoc.up.x0y1 << 2;
+							buf1 |= block.aoc.up.x1y0 << 4;
+							buf1 |= block.aoc.up.x1y1 << 6;
+							buf1 |= 0 << 8;													// rot
+							buf1 |= e.up.uv.x << 10;											// suvx
+							buf1 |= e.up.uv.y << 20;											// suvy
+							
+							buf2 |= (e.up.size.x-1) << 0;							// euvx
+							buf2 |= (e.up.size.y-1) << 4;						// euvy
+							buf2 |= col.r << 8; // col
+							buf2 |= col.g << 16;
+							buf2 |= col.b << 24;
+
+							std::cout << e.up.size << '\n';
+							std::cout << std::bitset<32>(buf2) << '\n';
+
+							posList.push_back(*(float *)(&buf1));				 // 3 x
+							posList.push_back(*(float *)(&buf2));				 // 3 y
 						}
 
 						{
@@ -875,6 +883,7 @@ int main()
 			window.updateMvp(proj * rot * tran);
 		}
 
+		agl::Texture::bind(atlas.texture);
 		wm.draw(window);
 
 		glDisable(GL_DEPTH_TEST);

@@ -113,6 +113,7 @@ struct Element
 		dir.uv.y += (float)v["uv"].get(Json::ArrayIndex(1), 0).asInt();                            \
 		dir.size.x = v["uv"].get(Json::ArrayIndex(2), 16).asInt() - v["uv"].get(Json::ArrayIndex(0), 0).asInt(); \
 		dir.size.y = v["uv"].get(Json::ArrayIndex(3), 16).asInt() - v["uv"].get(Json::ArrayIndex(1), 0).asInt(); \
+		std::cout << dir.size << '\n'; \
 		if (v.isMember("tintindex"))                                                                             \
 		{                                                                                                        \
 			if (name.find("grass") != std::string::npos)                                                         \
