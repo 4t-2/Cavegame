@@ -595,92 +595,34 @@ void WorldMesh::set(World &world, std::vector<Block> &blockDefs)
 						posList.push_back(mat.data[3][1]);
 						posList.push_back(mat.data[3][2]);
 
-						{
-							agl::Color col;
-							if (e.up.tintImage != nullptr)
-							{
-								col = (e.up.tintImage->at(
-									{(e.up.tintImage->size.x - 1) - ((e.up.tintImage->size.x - 1) * 0.8),
-									 (e.up.tintImage->size.y - 1) * 0.4}));
-							}
-							else
-							{
-								col = agl::Color::White;
-							}
+#define COOLERSHIT(dir)                         \
+	{                                           \
+		unsigned int buf = 0;                   \
+                                                \
+		buf |= block.aoc.dir.x0y0 << 0;         \
+		buf |= block.aoc.dir.x0y1 << 2;         \
+		buf |= block.aoc.dir.x1y0 << 4;         \
+		buf |= block.aoc.dir.x1y1 << 6;         \
+                                                \
+		buf |= (long long)e.dir.tintImage << 8; \
+                                                \
+		posList.push_back(*(float *)(&buf));    \
+	}
 
-							unsigned int buf1 = 0;
-							unsigned int buf2 = 0;
+						COOLERSHIT(up);
+						COOLERSHIT(down);
+						COOLERSHIT(south);
+						COOLERSHIT(north);
+						COOLERSHIT(west);
+						COOLERSHIT(east);
 
-							buf1 |= block.aoc.up.x0y0 << 0;
-							buf1 |= block.aoc.up.x0y1 << 2;
-							buf1 |= block.aoc.up.x1y0 << 4;
-							buf1 |= block.aoc.up.x1y1 << 6;
-							buf1 |= 0 << 8;													// rot
-							buf1 |= e.up.uv.x << 10;											// suvx
-							buf1 |= e.up.uv.y << 20;											// suvy
-							
-							buf2 |= (e.up.size.x-1) << 0;							// euvx
-							buf2 |= (e.up.size.y-1) << 4;						// euvy
-							buf2 |= col.r << 8; // col
-							buf2 |= col.g << 16;
-							buf2 |= col.b << 24;
+						posList.push_back(*(float *)&e.id); // 4 z
 
-							std::cout << e.up.size << '\n';
-							std::cout << std::bitset<32>(buf2) << '\n';
-
-							posList.push_back(*(float *)(&buf1));				 // 3 x
-							posList.push_back(*(float *)(&buf2));				 // 3 y
-						}
-
-						{
-							unsigned long long buf = 0;
-							buf |= block.aoc.down.x0y0 << 0;
-							buf |= block.aoc.down.x0y1 << 2;
-							buf |= block.aoc.down.x1y0 << 4;
-							buf |= block.aoc.down.x1y1 << 6;
-							posList.push_back(*(float *)(&buf)); // 3 z
-							posList.push_back(*(float *)((char*)&buf+ sizeof(float))); // 3 w
-						}
-
-						{
-							unsigned long long buf = 0;
-							buf |= block.aoc.south.x0y0 << 0;
-							buf |= block.aoc.south.x0y1 << 2;
-							buf |= block.aoc.south.x1y0 << 4;
-							buf |= block.aoc.south.x1y1 << 6;
-							posList.push_back(*(float *)&buf);					 // 4 x
-							posList.push_back(*(float *)((char*)&buf+ sizeof(float))); // 4 y
-						}
-
-						{
-							unsigned long long buf = 0;
-							buf |= block.aoc.north.x0y0 << 0;
-							buf |= block.aoc.north.x0y1 << 2;
-							buf |= block.aoc.north.x1y0 << 4;
-							buf |= block.aoc.north.x1y1 << 6;
-							posList.push_back(*(float *)&buf);					 // 4 z
-							posList.push_back(*(float *)((char*)&buf+ sizeof(float))); // 4 w
-						}
-
-						{
-							unsigned long long buf = 0;
-							buf |= block.aoc.west.x0y0 << 0;
-							buf |= block.aoc.west.x0y1 << 2;
-							buf |= block.aoc.west.x1y0 << 4;
-							buf |= block.aoc.west.x1y1 << 6;
-							posList.push_back(*(float *)&buf);					 // 5 x
-							posList.push_back(*(float *)((char*)&buf+ sizeof(float))); // 5 y
-						}
-
-						{
-							unsigned long long buf = 0;
-							buf |= block.aoc.east.x0y0 << 0;
-							buf |= block.aoc.east.x0y1 << 2;
-							buf |= block.aoc.east.x1y0 << 4;
-							buf |= block.aoc.east.x1y1 << 6;
-							posList.push_back(*(float *)&buf);					 // 5 z
-							posList.push_back(*(float *)((char*)&buf+ sizeof(float))); // 5 w
-						}
+						posList.push_back(0); // 4 w
+						posList.push_back(0); // 5 x
+						posList.push_back(0); // 5 y
+						posList.push_back(0); // 5 z
+						posList.push_back(0); // 5 w
 					}
 				}
 			}
@@ -734,6 +676,8 @@ int main()
 	std::vector<Block>		   blockDefs;
 	std::map<std::string, int> blockNameToDef;
 
+	agl::Texture elementDataTexture;
+
 	blockDefs.reserve(atlas.blockMap.size() + 1);
 	{
 		std::map<std::string, Json::Value> jsonPairs;
@@ -754,11 +698,35 @@ int main()
 			jsonPairs[s.substr(0, s.length() - 5)] = root;
 		}
 
+		std::vector<float> databuf;
+		databuf.reserve(128 * 128 * 4);
+
 		for (auto &e : jsonPairs)
 		{
 			blockNameToDef["minecraft:" + e.first] = blockDefs.size();
 			blockDefs.emplace_back(atlas, e.first, jsonPairs, tintTextureGrass, tintTextureFoliage);
+
+			for (auto &e : blockDefs.back().elements)
+			{
+				for (auto i : e.elementDataArray)
+				{
+					// 1 face = 1/2 pixel
+					// full = 3 pixels
+					databuf.push_back(*(float *)&i);
+					// databuf.push_back(2);
+				}
+			}
 		}
+
+		databuf.resize(128 * 128 * 4);
+
+		elementDataTexture.genTexture();
+		elementDataTexture.bind(elementDataTexture);
+
+		// 128*128
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 128, 128, 0, GL_RGBA, GL_FLOAT, &databuf[0]);
+
+		elementDataTexture.useNearestFiltering();
 	}
 
 	agl::Texture foodTexture;
@@ -828,13 +796,6 @@ int main()
 
 	// return 0;
 
-	auto		normUniform = worldShader.getUniformLocation("norm");
-	AOUnfiforms aou;
-	aou.x0y0 = worldShader.getUniformLocation("x0y0");
-	aou.x1y0 = worldShader.getUniformLocation("x1y0");
-	aou.x0y1 = worldShader.getUniformLocation("x0y1");
-	aou.x1y1 = worldShader.getUniformLocation("x1y1");
-
 	bool focused = true;
 
 	CommandBox cmdBox(blankRect, text, blank, blockDefs, windowSize, focused);
@@ -855,6 +816,17 @@ int main()
 
 	WorldMesh wm;
 	wm.set(world, blockDefs);
+
+	{
+		worldShader.use();
+		auto id = worldShader.getUniformLocation("elementDataSampler");
+
+		glUniform1i(id, 1);
+
+		id = worldShader.getUniformLocation("textureSampler");
+
+		glUniform1i(id, 0);
+	}
 
 	while (!event.windowClose())
 	{
@@ -883,6 +855,9 @@ int main()
 			window.updateMvp(proj * rot * tran);
 		}
 
+		glActiveTexture(GL_TEXTURE0 + 1);
+		agl::Texture::bind(elementDataTexture);
+		glActiveTexture(GL_TEXTURE0 + 0);
 		agl::Texture::bind(atlas.texture);
 		wm.draw(window);
 

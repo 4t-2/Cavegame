@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Atlas.hpp"
+#include <bitset>
 #include <json/json.h>
 
 struct Covered
@@ -59,11 +60,11 @@ struct Grid3
 
 struct Face
 {
-		agl::Vec<int, 2> uv		 = {0, 0};
-		agl::Vec<int, 2> size		 = {0, 0};
-		bool			   exists	 = false;
-		Image			  *tintImage = nullptr;
-		bool			   cull		 = false;
+		agl::Vec<int, 2> uv		   = {0, 0};
+		agl::Vec<int, 2> size	   = {0, 0};
+		bool			 exists	   = false;
+		Image			*tintImage = nullptr;
+		bool			 cull	   = false;
 };
 
 struct AOUnfiforms
@@ -76,6 +77,19 @@ struct AOUnfiforms
 
 struct Element
 {
+		int extract(int buf, int size, int start)
+		{
+			return (((1 << size) - 1) & (buf >> start));
+		}
+
+		agl::Vec<int, 2> idToSample(int id)
+		{
+			int x = extract(id, 7, 0);
+			int y = extract(id, 7, 7);
+
+			return {x, y};
+		}
+
 		Face up;
 		Face down;
 		Face east;
@@ -85,6 +99,9 @@ struct Element
 
 		agl::Vec<float, 3> size;
 		agl::Vec<float, 3> offset;
+
+		int						  id = 0;
+		std::vector<unsigned int> elementDataArray;
 
 		Element(Json::Value &val, std::map<std::string, agl::Vec<int, 2>> &texHash, agl::Vec<int, 2> atlasSize,
 				Image &tintGrass, Image &tintFoliage, std::string &name)
@@ -103,26 +120,29 @@ struct Element
 			offset = from;
 			size   = to - from;
 
+			static int maxElementId = 0;
+			id						= maxElementId;
+			maxElementId++;
+
 #define COOLSHIT(dir)                                                                                            \
 	if (val["faces"].isMember(#dir))                                                                             \
 	{                                                                                                            \
 		auto &v	   = val["faces"][#dir];                                                                         \
 		dir.exists = true;                                                                                       \
 		dir.uv	   = texHash[v["texture"].asString()];                                                           \
-		dir.uv.x += (float)v["uv"].get(Json::ArrayIndex(0), 0).asInt();                            \
-		dir.uv.y += (float)v["uv"].get(Json::ArrayIndex(1), 0).asInt();                            \
+		dir.uv.x += (float)v["uv"].get(Json::ArrayIndex(0), 0).asInt();                                          \
+		dir.uv.y += (float)v["uv"].get(Json::ArrayIndex(1), 0).asInt();                                          \
 		dir.size.x = v["uv"].get(Json::ArrayIndex(2), 16).asInt() - v["uv"].get(Json::ArrayIndex(0), 0).asInt(); \
 		dir.size.y = v["uv"].get(Json::ArrayIndex(3), 16).asInt() - v["uv"].get(Json::ArrayIndex(1), 0).asInt(); \
-		std::cout << dir.size << '\n'; \
 		if (v.isMember("tintindex"))                                                                             \
 		{                                                                                                        \
 			if (name.find("grass") != std::string::npos)                                                         \
 			{                                                                                                    \
-				dir.tintImage = &tintGrass;                                                                      \
+				dir.tintImage = (Image *)1;                                                                      \
 			}                                                                                                    \
 			else                                                                                                 \
 			{                                                                                                    \
-				dir.tintImage = &tintFoliage;                                                                    \
+				dir.tintImage = (Image *)2;                                                                      \
 			}                                                                                                    \
 		}                                                                                                        \
 		if (v.isMember("cullface"))                                                                              \
@@ -133,8 +153,28 @@ struct Element
 		{                                                                                                        \
 			dir.cull = false;                                                                                    \
 		}                                                                                                        \
+		{                                                                                                        \
+			unsigned int buf1 = 0;                                                                               \
+			unsigned int buf2 = 0;                                                                               \
+                                                                                                                 \
+			buf1 |= 1 << 31;                                                                                     \
+			buf1 |= dir.uv.x << 0;                                                                               \
+			buf1 |= dir.uv.y << 16;                                                                              \
+                                                                                                                 \
+			buf2 |= (dir.size.x - 1) << 0;                                                                       \
+			buf2 |= (dir.size.y - 1) << 16;                                                                      \
+                                                                                                                 \
+			elementDataArray.push_back(buf1);                                                                    \
+			elementDataArray.push_back(buf2);                                                                    \
+		}                                                                                                        \
+	}                                                                                                            \
+	else                                                                                                         \
+	{                                                                                                            \
+		elementDataArray.push_back(0);                                                                           \
+		elementDataArray.push_back(0);                                                                           \
 	}
 
+			// 10 bytes each
 			COOLSHIT(up)
 			COOLSHIT(down)
 			COOLSHIT(north)
