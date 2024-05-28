@@ -595,44 +595,49 @@ void WorldMesh::set(World &world, std::vector<Block> &blockDefs)
 						posList.push_back(mat.data[3][1]);
 						posList.push_back(mat.data[3][2]);
 
-#define COOLERSHIT(dir)                         \
-	{                                           \
-		unsigned int buf = 0;                   \
-                                                \
-		buf |= block.aoc.dir.x0y0 << 0;         \
-		buf |= block.aoc.dir.x0y1 << 2;         \
-		buf |= block.aoc.dir.x1y0 << 4;         \
-		buf |= block.aoc.dir.x1y1 << 6;         \
-                                                \
-		buf |= (long long)e.dir.tintImage << 8; \
-                                                \
-		posList.push_back(*(float *)(&buf));    \
+#define COOLERSHIT(dir1, dir2)                    \
+	{                                             \
+		unsigned int buf = 0;                     \
+                                                  \
+		buf |= block.aoc.dir1.x0y0 << 0;          \
+		buf |= block.aoc.dir1.x0y1 << 2;          \
+		buf |= block.aoc.dir1.x1y0 << 4;          \
+		buf |= block.aoc.dir1.x1y1 << 6;          \
+		buf |= (long long)e.dir1.tintImage << 8;  \
+                                                  \
+		buf |= block.aoc.dir2.x0y0 << 16;         \
+		buf |= block.aoc.dir2.x0y1 << 18;         \
+		buf |= block.aoc.dir2.x1y0 << 20;         \
+		buf |= block.aoc.dir2.x1y1 << 22;         \
+		buf |= (long long)e.dir2.tintImage << 24; \
+                                                  \
+		posList.push_back(*(float *)(&buf));      \
 	}
 
-						COOLERSHIT(up);
-						COOLERSHIT(down);
-						COOLERSHIT(south);
-						COOLERSHIT(north);
-						COOLERSHIT(west);
-						COOLERSHIT(east);
+						COOLERSHIT(up, down);	  // 3 x
+						COOLERSHIT(south, north); // 3 y
+						COOLERSHIT(west, east);	  // 3 z
 
-						posList.push_back(*(float *)&e.id); // 4 z
+						posList.push_back(*(float *)&e.id); // 3 w
 
-						posList.push_back(0); // 4 w
-						posList.push_back(0); // 5 x
-						posList.push_back(0); // 5 y
-						posList.push_back(0); // 5 z
-						posList.push_back(0); // 5 w
+						// posList.push_back(0); // 4 x
+						// posList.push_back(0); // 4 y
+						// posList.push_back(0); // 4 z
+						// posList.push_back(0); // 4 w
+						// posList.push_back(0); // 5 x
+						// posList.push_back(0); // 5 y
+						// posList.push_back(0); // 5 z
+						// posList.push_back(0); // 5 w
 					}
 				}
 			}
 		}
 	}
 
-	std::cout << posList.size() << '\n';
+	std::cout << posList.size() / 16 << '\n';
 
 	glp.genBuffers(1);
-	glp.setMode(GL_TRIANGLES_ADJACENCY);
+	glp.setMode(GL_LINES_ADJACENCY);
 	glp.setVertexAmount(posList.size() / 4);
 	glp.setBufferData(0, &posList[0], 4);
 }

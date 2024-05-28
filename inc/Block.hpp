@@ -63,7 +63,7 @@ struct Face
 		agl::Vec<int, 2> uv		   = {0, 0};
 		agl::Vec<int, 2> size	   = {0, 0};
 		bool			 exists	   = false;
-		Image			*tintImage = nullptr;
+		int tintImage = 0;
 		bool			 cull	   = false;
 };
 
@@ -138,11 +138,11 @@ struct Element
 		{                                                                                                        \
 			if (name.find("grass") != std::string::npos)                                                         \
 			{                                                                                                    \
-				dir.tintImage = (Image *)1;                                                                      \
+				dir.tintImage = 1;                                                                      \
 			}                                                                                                    \
 			else                                                                                                 \
 			{                                                                                                    \
-				dir.tintImage = (Image *)2;                                                                      \
+				dir.tintImage = 2;                                                                      \
 			}                                                                                                    \
 		}                                                                                                        \
 		if (v.isMember("cullface"))                                                                              \
@@ -205,199 +205,6 @@ struct Element
 			else
 			{
 				return 0;
-			}
-		}
-
-		void render(agl::RenderWindow &window, agl::Shape &blankRect, agl::Vec<int, 3> pos, int id, AOUnfiforms aou,
-					BlockData &bd)
-		{
-			// 67/84 1 0.7976190476
-			// 25/42 2 0.5952380952
-			// 25/63 corner 0.3968253968
-			// 67/84 outie 0.7976190476
-			// all in .2s
-
-			// e c
-			// 0 0 1
-			// 0 1 0
-			// 1 0 1
-			// 1 1 1
-
-			// y+
-			if (up.exists && !(bd.exposed.up == false && up.cull == true))
-			{
-				if (up.tintImage != nullptr)
-				{
-					blankRect.setColor(
-						up.tintImage->at({(up.tintImage->size.x - 1) - ((up.tintImage->size.x - 1) * 0.8),
-										  (up.tintImage->size.y - 1) * 0.4}));
-				}
-				else
-				{
-					blankRect.setColor(agl::Color::White);
-				}
-
-				blankRect.setTextureTranslation(up.uv);
-				blankRect.setTextureScaling(up.size);
-				blankRect.setSize({size.x, size.z, 0});
-				blankRect.setPosition(agl::Vec<float, 3>{pos.x, pos.y + size.y, pos.z} + offset);
-				blankRect.setRotation({90, 0, 0});
-
-				ax::Program::setUniform(id, agl::Vec<float, 3>{0, 1, 0});
-
-				glUniform1f(aou.x0y0, bd.aoc.up.x0y0);
-				glUniform1f(aou.x1y0, bd.aoc.up.x1y0);
-				glUniform1f(aou.x0y1, bd.aoc.up.x0y1);
-				glUniform1f(aou.x1y1, bd.aoc.up.x1y1);
-
-				window.drawShape(blankRect);
-			}
-
-			// y-
-			if (down.exists && !(bd.exposed.down == false && down.cull == true))
-			{
-				if (down.tintImage != nullptr)
-				{
-					blankRect.setColor(
-						down.tintImage->at({(down.tintImage->size.x - 1) - ((down.tintImage->size.x - 1) * 0.8),
-											(down.tintImage->size.y - 1) * 0.4}));
-				}
-				else
-				{
-					blankRect.setColor(agl::Color::White);
-				}
-
-				blankRect.setTextureTranslation(down.uv);
-				blankRect.setTextureScaling(down.size);
-				blankRect.setSize({size.x, -size.z, 0});
-				blankRect.setPosition(agl::Vec<float, 3>{pos.x, pos.y, pos.z + size.z} + offset);
-				blankRect.setRotation({90, 0, 0});
-
-				ax::Program::setUniform(id, agl::Vec<float, 3>{0, -1, 0});
-
-				glUniform1f(aou.x0y0, bd.aoc.down.x0y0);
-				glUniform1f(aou.x1y0, bd.aoc.down.x1y0);
-				glUniform1f(aou.x0y1, bd.aoc.down.x0y1);
-				glUniform1f(aou.x1y1, bd.aoc.down.x1y1);
-
-				window.drawShape(blankRect);
-			}
-
-			if (south.exists && !(bd.exposed.south == false && south.cull == true))
-			{
-				if (south.tintImage != nullptr)
-				{
-					blankRect.setColor(
-						south.tintImage->at({(south.tintImage->size.x - 1) - ((south.tintImage->size.x - 1) * 0.8),
-											 (south.tintImage->size.y - 1) * 0.4}));
-				}
-				else
-				{
-					blankRect.setColor(agl::Color::White);
-				}
-				// z-
-				blankRect.setTextureTranslation(south.uv);
-				blankRect.setTextureScaling(south.size);
-				blankRect.setSize({-size.x, -size.y, 0});
-				blankRect.setPosition(agl::Vec<float, 3>{pos.x + size.x, pos.y + size.y, pos.z} + offset);
-				blankRect.setRotation({0, 0, 0});
-
-				ax::Program::setUniform(id, agl::Vec<float, 3>{0, 0, -1});
-
-				glUniform1f(aou.x0y0, bd.aoc.south.x0y0);
-				glUniform1f(aou.x1y0, bd.aoc.south.x1y0);
-				glUniform1f(aou.x0y1, bd.aoc.south.x0y1);
-				glUniform1f(aou.x1y1, bd.aoc.south.x1y1);
-
-				window.drawShape(blankRect);
-			}
-
-			// z+
-			if (north.exists && !(bd.exposed.north == false && north.cull == true))
-			{
-				if (north.tintImage != nullptr)
-				{
-					blankRect.setColor(
-						north.tintImage->at({(north.tintImage->size.x - 1) - ((north.tintImage->size.x - 1) * 0.8),
-											 (north.tintImage->size.y - 1) * 0.4}));
-				}
-				else
-				{
-					blankRect.setColor(agl::Color::White);
-				}
-				blankRect.setTextureTranslation(north.uv);
-				blankRect.setTextureScaling(north.size);
-				blankRect.setSize({size.x, -size.y, 0});
-				blankRect.setPosition(agl::Vec<float, 3>{pos.x, pos.y + size.y, pos.z + size.z} + offset);
-				blankRect.setRotation({0, 0, 0});
-
-				ax::Program::setUniform(id, agl::Vec<float, 3>{0, 0, 1});
-
-				glUniform1f(aou.x0y0, bd.aoc.north.x0y0);
-				glUniform1f(aou.x1y0, bd.aoc.north.x1y0);
-				glUniform1f(aou.x0y1, bd.aoc.north.x0y1);
-				glUniform1f(aou.x1y1, bd.aoc.north.x1y1);
-
-				window.drawShape(blankRect);
-			}
-
-			// x-
-			if (west.exists && !(bd.exposed.west == false && west.cull == true))
-			{
-				if (west.tintImage != nullptr)
-				{
-					blankRect.setColor(
-						west.tintImage->at({(west.tintImage->size.x - 1) - ((west.tintImage->size.x - 1) * 0.8),
-											(west.tintImage->size.y - 1) * 0.4}));
-				}
-				else
-				{
-					blankRect.setColor(agl::Color::White);
-				}
-				blankRect.setTextureTranslation(west.uv);
-				blankRect.setTextureScaling(west.size);
-				blankRect.setSize({size.z, -size.y, 0});
-				blankRect.setPosition(agl::Vec<float, 3>{pos.x, pos.y + size.y, pos.z} + offset);
-				blankRect.setRotation({0, 90, 0});
-
-				ax::Program::setUniform(id, agl::Vec<float, 3>{-1, 0, 0});
-
-				glUniform1f(aou.x0y0, bd.aoc.west.x0y0);
-				glUniform1f(aou.x1y0, bd.aoc.west.x1y0);
-				glUniform1f(aou.x0y1, bd.aoc.west.x0y1);
-				glUniform1f(aou.x1y1, bd.aoc.west.x1y1);
-
-				window.drawShape(blankRect);
-			}
-
-			// x+
-			if (east.exists && !(bd.exposed.east == false && east.cull == true))
-			{
-				if (east.tintImage != nullptr)
-				{
-					blankRect.setColor(
-						east.tintImage->at({(east.tintImage->size.x - 1) - ((east.tintImage->size.x - 1) * 0.8),
-											(east.tintImage->size.y - 1) * 0.4}));
-				}
-				else
-				{
-					blankRect.setColor(agl::Color::White);
-				}
-
-				blankRect.setTextureTranslation(east.uv);
-				blankRect.setTextureScaling(east.size);
-				blankRect.setSize({-size.z, -size.y, 0});
-				blankRect.setPosition(agl::Vec<float, 3>{pos.x + size.x, pos.y + size.y, pos.z + size.z} + offset);
-				blankRect.setRotation({0, 90, 0});
-
-				ax::Program::setUniform(id, agl::Vec<float, 3>{1, 0, 0});
-
-				glUniform1f(aou.x0y0, bd.aoc.east.x0y0);
-				glUniform1f(aou.x1y0, bd.aoc.east.x1y0);
-				glUniform1f(aou.x0y1, bd.aoc.east.x0y1);
-				glUniform1f(aou.x1y1, bd.aoc.east.x1y1);
-
-				window.drawShape(blankRect);
 			}
 		}
 };
@@ -488,10 +295,6 @@ class Block
 		void render(agl::RenderWindow &window, agl::Shape &blankRect, agl::Vec<int, 3> pos, int id, AOUnfiforms aou,
 					BlockData &bd)
 		{
-			for (auto &e : elements)
-			{
-				e.render(window, blankRect, pos, id, aou, bd);
-			}
 		}
 
 		~Block()

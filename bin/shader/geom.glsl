@@ -1,5 +1,5 @@
 #version 330 core
-layout (triangles_adjacency) in;
+layout (lines_adjacency) in;
 layout (triangle_strip, max_vertices = 36) out;
 
 out vec4 fragColor;
@@ -79,12 +79,11 @@ float x0y0 = 0;
 float x0y1 = 0;
 float x1y0 = 0;
 float x1y1 = 0;
-vec3 tint = vec3(0, 0);
+vec3 tint = vec3(0, 0, 0);
 int exists = 0;
 
-void updateConsts(float f1, float f2, float f3)
+void updateConsts(int i, float f2, float f3)
 {
-	int i = floatBitsToInt(f1);
 	int b1 = floatBitsToInt(f2);
 	int b2 = floatBitsToInt(f3);
 
@@ -126,14 +125,14 @@ void createVertex(vec4 offset, float aoc, vec2 uv)
 }
 
 void main() {
-	int id = floatBitsToInt(gl_in[4].gl_Position.z);
+	int id = floatBitsToInt(gl_in[3].gl_Position.w);
 
 	vec4 buf1 = idToSample((id * 3));
 	vec4 buf2 = idToSample((id * 3) + 1);
 	vec4 buf3 = idToSample((id * 3) + 2);
 
 	{
-		updateConsts(gl_in[3].gl_Position.x, buf1.x, buf1.y);
+		updateConsts(floatBitsToInt(gl_in[3].gl_Position.x), buf1.x, buf1.y);
 
 		if(exists == 1)
 		{
@@ -150,7 +149,7 @@ void main() {
 	}
 
 	{
-		updateConsts(gl_in[3].gl_Position.y, buf1.z, buf1.w);
+		updateConsts(floatBitsToInt(gl_in[3].gl_Position.x) >> 16, buf1.z, buf1.w);
 
 		if(exists == 1)
 		{
@@ -167,7 +166,7 @@ void main() {
 	}
 
 	{
-		updateConsts(gl_in[3].gl_Position.z, buf2.x, buf2.y);
+		updateConsts(floatBitsToInt(gl_in[3].gl_Position.y), buf2.x, buf2.y);
 
 		if(exists == 1)
 		{
@@ -184,7 +183,7 @@ void main() {
 	}
 
 	{
-		updateConsts(gl_in[3].gl_Position.w, buf2.z, buf2.w);
+		updateConsts(floatBitsToInt(gl_in[3].gl_Position.y) >> 16, buf2.z, buf2.w);
 
 		if(exists == 1)
 		{
@@ -201,7 +200,7 @@ void main() {
 	}
 
 	{
-		updateConsts(gl_in[4].gl_Position.x, buf3.x, buf3.y);
+		updateConsts(floatBitsToInt(gl_in[3].gl_Position.z), buf3.x, buf3.y);
 
 		if(exists == 1)
 		{
@@ -218,7 +217,7 @@ void main() {
 	}
 
 	{
-		updateConsts(gl_in[4].gl_Position.y, buf3.z, buf3.w);
+		updateConsts(floatBitsToInt(gl_in[3].gl_Position.z) >> 16, buf3.z, buf3.w);
 
 		if(exists == 1)
 		{

@@ -112,6 +112,5 @@ class Atlas
 			agl::Texture::setParameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 			this->size = {sq, sq};
-			std::cout << this->size << '\n';
 		}
 };
