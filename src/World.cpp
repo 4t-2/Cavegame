@@ -15,28 +15,29 @@ void World::loadFromFile(std::string dir, std::map<std::string, int> &strToId)
 	}
 
 	auto regionFile = enkiRegionFileLoad(fp);
+	std::cout << loadedChunks.size() << '\n';
 
+	enkiNBTDataStream stream;
+	// loop through every chunk in region 32*32
 	for (int i = 0; i < ENKI_MI_REGION_CHUNKS_NUMBER; i++)
 	{
-		enkiNBTDataStream stream;
 		enkiInitNBTDataStreamForChunk(regionFile, i, &stream);
 		if (stream.dataLength)
 		{
 			enkiChunkBlockData aChunk		  = enkiNBTReadChunk(&stream);
-			enkiMICoordinate   chunkOriginPos = enkiGetChunkOrigin(&aChunk); // y always 0
+			agl::Vec<int, 3>   chunkOriginPos = conv(enkiGetChunkOrigin(&aChunk)); // y always 0
 
+			ChunkRaw &cr = loadedChunks[chunkOriginPos / 16];
+
+			// go through every section in chunk, variable
 			for (int section = 0; section < ENKI_MI_NUM_SECTIONS_PER_CHUNK; ++section)
 			{
 				if (aChunk.sections[section])
 				{
-					agl::Vec		 sectionOrigin = conv(enkiGetChunkSectionOrigin(&aChunk, section));
+					agl::Vec		 sectionOrigin = conv(enkiGetChunkSectionOrigin(&aChunk, section)) - chunkOriginPos;
 					enkiMICoordinate sPos;
 
-					if(sectionOrigin.x >= 16*4 || sectionOrigin.z >= 16*4)
-					{
-						continue;
-					}
-
+					// go through each block in section
 					for (sPos.y = 0; sPos.y < ENKI_MI_SIZE_SECTIONS; ++sPos.y)
 					{
 						for (sPos.z = 0; sPos.z < ENKI_MI_SIZE_SECTIONS; ++sPos.z)
@@ -51,12 +52,11 @@ void World::loadFromFile(std::string dir, std::map<std::string, int> &strToId)
 
 								agl::Vec<int, 3> blockPos = (conv(sPos) + sectionOrigin + agl::Vec{0, 64, 0});
 
-								if(strName == "minecraft:water")
+								if (strName == "minecraft:water")
 								{
 									strName = "minecraft:blue_concrete";
 								}
-
-								get(blockPos) = strToId[strName];
+								cr.at(blockPos).type = strToId[strName];
 							}
 						}
 					}
@@ -67,4 +67,6 @@ void World::loadFromFile(std::string dir, std::map<std::string, int> &strToId)
 		}
 		enkiNBTFreeAllocations(&stream);
 	}
+
+	std::cout << "loaded " << loadedChunks.size() << " chunks" << '\n';
 }

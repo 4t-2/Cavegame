@@ -4,6 +4,7 @@
 #include <MI/enkimi.h>
 #include <MI/miniz.h>
 #include <filesystem>
+#include <list>
 
 // class ChunkGrid
 // {
@@ -22,27 +23,35 @@
 // 		}
 // };
 
+namespace std {
+    template <>
+    struct hash<agl::Vec<int, 3>> {
+        
+        size_t operator() (const agl::Vec<int, 3>& v) const { return v.x * v.y * v.z; }
+    };
+}
+
+struct ChunkRaw
+{
+		BlockData blocks[16][385][16];
+
+		BlockData &at(agl::Vec<int, 3> v)
+		{
+			return blocks[v.x][v.y][v.z];
+		}
+};
+
 class World
 {
 	public:
-		std::vector<std::vector<std::vector<BlockData>>> blocks;
-		agl::Vec<int, 3>									size;
-		unsigned int										air;
-		unsigned int										cobblestone;
-		unsigned int										leaves;
+		std::unordered_map<agl::Vec<int, 3>, ChunkRaw> loadedChunks;
+		agl::Vec<int, 3>					 size;
+		unsigned int						 air;
+		unsigned int						 cobblestone;
+		unsigned int						 leaves;
 
-		World(agl::Vec<int, 3> size = {16*4, 385, 16*4}) : size(size)
+		World() : loadedChunks()
 		{
-			blocks.resize(size.x);
-
-			for (auto &b : blocks)
-			{
-				b.resize(size.y);
-				for (auto &b : b)
-				{
-					b.resize(size.z);
-				}
-			}
 		}
 
 		void setBasics(std::vector<Block> blocks)
@@ -71,32 +80,32 @@ class World
 					break;
 				}
 			}
-
-			for (auto &x : this->blocks)
-			{
-				for (auto &x : x)
-				{
-					for (auto &x : x)
-					{
-						x.type = air;
-					}
-				}
-			}
 		}
 
 		bool getAtPos(agl::Vec<int, 3> pos)
 		{
-			if (pos.x >= size.x || pos.x < 0 || pos.y >= size.y || pos.y < 0 || pos.z >= size.z || pos.z < 0)
+			agl::Vec<int, 3> chunkPos;
+			chunkPos.x = pos.x >> 4;
+			chunkPos.y = 0;
+			chunkPos.z = pos.z >> 4;
+
+			if (loadedChunks.count(chunkPos) == 0)
 			{
 				return false;
 			}
-			return blocks.at(pos.x).at(pos.y).at(pos.z).type != air;
+
+			return loadedChunks[chunkPos].at(pos - (chunkPos * 16)).type != air;
 		}
 
 		void loadFromFile(std::string dir, std::map<std::string, int> &strToId);
 
 		unsigned int &get(agl::Vec<int, 3> pos)
 		{
-			return blocks[pos.x][pos.y][pos.z].type;
+			agl::Vec<int, 3> chunkPos;
+			chunkPos.x = pos.x >> 4;
+			chunkPos.y = 0;
+			chunkPos.z = pos.z >> 4;
+
+			return loadedChunks[chunkPos].at(pos - (chunkPos * 16)).type;
 		}
 };

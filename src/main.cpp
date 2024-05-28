@@ -103,7 +103,7 @@ unsigned int AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int,
 class Player
 {
 	public:
-		agl::Vec<float, 3> pos = {1, 150, 1};
+		agl::Vec<float, 3> pos = {4, 150, 4};
 		agl::Vec<float, 3> rot = {0, PI / 2, 0};
 		agl::Vec<float, 3> vel = {0, 0, 0};
 
@@ -422,7 +422,9 @@ class WorldMesh
 	public:
 		agl::GLPrimative glp;
 
-		void set(World &world, std::vector<Block> &blockDefs);
+		agl::Vec<int, 3> chunkPos;
+
+		void set(World &world, std::vector<Block> &blockDefs, Player &player);
 
 		void draw(agl::RenderWindow &rw)
 		{
@@ -430,41 +432,46 @@ class WorldMesh
 		}
 };
 
-void WorldMesh::set(World &world, std::vector<Block> &blockDefs)
+void WorldMesh::set(World &world, std::vector<Block> &blockDefs, Player &player)
 {
-	// glp.deleteData();
+	chunkPos = player.pos / 16;
+	chunkPos.y = 0;
+	agl::Vec<int, 3> chunkPosBig = chunkPos * 16;
+	ChunkRaw &chunk = world.loadedChunks[chunkPos];
+
+	glp.deleteData();
 	std::vector<float> posList;
 
-	for (int x = 0; x < world.size.x; x++)
+	for (int x = 0; x < 16; x++)
 	{
-		for (int y = 0; y < world.size.y; y++)
+		for (int y = 0; y < 385; y++)
 		{
-			for (int z = 0; z < world.size.z; z++)
+			for (int z = 0; z < 16; z++)
 			{
-				auto &block = world.blocks[x][y][z];
+				agl::Vec<float, 3> pos = agl::Vec<int, 3>{x, y, z};
 
-				agl::Vec<float, 3> pos{x, y, z};
+				auto &block = chunk.at(pos);
 
-				if (!world.getAtPos(pos))
+				if (block.type == world.air)
 				{
 					continue;
 				}
 
 				block.exposed.nonvis = true;
 
-				if (y + 1 >= world.size.y)
+				if (y + 1 >= 385)
 				{
 					block.exposed.up = false;
 				}
-				else if (world.blocks[x][y + 1][z].type == world.air || world.blocks[x][y + 1][z].type == world.leaves)
+				else if (chunk.blocks[x][y + 1][z].type == world.air || chunk.blocks[x][y + 1][z].type == world.leaves)
 				{
 					block.exposed.nonvis = false;
 					block.exposed.up	 = true;
 
-					block.aoc.up.x0y0 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
-					block.aoc.up.x1y0 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, world);
-					block.aoc.up.x0y1 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
-					block.aoc.up.x1y1 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, world);
+					block.aoc.up.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
+					block.aoc.up.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, world);
+					block.aoc.up.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
+					block.aoc.up.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, world);
 				}
 				else
 				{
@@ -475,15 +482,15 @@ void WorldMesh::set(World &world, std::vector<Block> &blockDefs)
 				{
 					block.exposed.down = false;
 				}
-				else if (world.blocks[x][y - 1][z].type == world.air || world.blocks[x][y - 1][z].type == world.leaves)
+				else if (chunk.blocks[x][y - 1][z].type == world.air || chunk.blocks[x][y - 1][z].type == world.leaves)
 				{
 					block.exposed.nonvis = false;
 					block.exposed.down	 = true;
 
-					block.aoc.down.x0y0 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
-					block.aoc.down.x1y0 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, world);
-					block.aoc.down.x0y1 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
-					block.aoc.down.x1y1 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, world);
+					block.aoc.down.x0y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
+					block.aoc.down.x1y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, world);
+					block.aoc.down.x0y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
+					block.aoc.down.x1y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, world);
 				}
 				else
 				{
@@ -492,19 +499,19 @@ void WorldMesh::set(World &world, std::vector<Block> &blockDefs)
 
 				// z
 
-				if (z + 1 >= world.size.z)
+				if (z + 1 >= 16)
 				{
 					block.exposed.north = false;
 				}
-				else if (world.blocks[x][y][z + 1].type == world.air || world.blocks[x][y][z + 1].type == world.leaves)
+				else if (chunk.blocks[x][y][z + 1].type == world.air || chunk.blocks[x][y][z + 1].type == world.leaves)
 				{
 					block.exposed.nonvis = false;
 					block.exposed.north	 = true;
 
-					block.aoc.north.x0y0 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, world);
-					block.aoc.north.x1y0 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, world);
-					block.aoc.north.x0y1 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, world);
-					block.aoc.north.x1y1 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, world);
+					block.aoc.north.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, world);
+					block.aoc.north.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, world);
+					block.aoc.north.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, world);
+					block.aoc.north.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, world);
 				}
 				else
 				{
@@ -515,15 +522,15 @@ void WorldMesh::set(World &world, std::vector<Block> &blockDefs)
 				{
 					block.exposed.south = false;
 				}
-				else if (world.blocks[x][y][z - 1].type == world.air || world.blocks[x][y][z - 1].type == world.leaves)
+				else if (chunk.blocks[x][y][z - 1].type == world.air || chunk.blocks[x][y][z - 1].type == world.leaves)
 				{
 					block.exposed.nonvis = false;
 					block.exposed.south	 = true;
 
-					block.aoc.south.x0y0 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, world);
-					block.aoc.south.x1y0 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, world);
-					block.aoc.south.x0y1 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, world);
-					block.aoc.south.x1y1 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, world);
+					block.aoc.south.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, world);
+					block.aoc.south.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, world);
+					block.aoc.south.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, world);
+					block.aoc.south.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, world);
 				}
 				else
 				{
@@ -532,19 +539,19 @@ void WorldMesh::set(World &world, std::vector<Block> &blockDefs)
 
 				// x
 
-				if (x + 1 >= world.size.x)
+				if (x + 1 >= 16)
 				{
 					block.exposed.east = false;
 				}
-				else if (world.blocks[x + 1][y][z].type == world.air || world.blocks[x + 1][y][z].type == world.leaves)
+				else if (chunk.blocks[x + 1][y][z].type == world.air || chunk.blocks[x + 1][y][z].type == world.leaves)
 				{
 					block.exposed.nonvis = false;
 					block.exposed.east	 = true;
 
-					block.aoc.east.x0y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
-					block.aoc.east.x1y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
-					block.aoc.east.x0y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
-					block.aoc.east.x1y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
+					block.aoc.east.x0y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
+					block.aoc.east.x1y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
+					block.aoc.east.x0y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
+					block.aoc.east.x1y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
 				}
 				else
 				{
@@ -555,15 +562,15 @@ void WorldMesh::set(World &world, std::vector<Block> &blockDefs)
 				{
 					block.exposed.west = false;
 				}
-				else if (world.blocks[x - 1][y][z].type == world.air || world.blocks[x - 1][y][z].type == world.leaves)
+				else if (chunk.blocks[x - 1][y][z].type == world.air || chunk.blocks[x - 1][y][z].type == world.leaves)
 				{
 					block.exposed.nonvis = false;
 					block.exposed.west	 = true;
 
-					block.aoc.west.x0y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
-					block.aoc.west.x1y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
-					block.aoc.west.x0y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
-					block.aoc.west.x1y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
+					block.aoc.west.x0y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
+					block.aoc.west.x1y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
+					block.aoc.west.x0y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
+					block.aoc.west.x1y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
 				}
 				else
 				{
@@ -577,7 +584,7 @@ void WorldMesh::set(World &world, std::vector<Block> &blockDefs)
 						agl::Mat4f scale;
 						scale.scale(e.size);
 						agl::Mat4f offset;
-						offset.translate(e.offset + pos);
+						offset.translate(e.offset + pos + (chunkPos * 16));
 						agl::Mat4f mat = offset * scale;
 
 						posList.push_back(mat.data[0][0]);
@@ -633,8 +640,6 @@ void WorldMesh::set(World &world, std::vector<Block> &blockDefs)
 			}
 		}
 	}
-
-	std::cout << posList.size() / 16 << '\n';
 
 	glp.genBuffers(1);
 	glp.setMode(GL_LINES_ADJACENCY);
@@ -820,7 +825,7 @@ int main()
 	std::cout << "entering" << '\n';
 
 	WorldMesh wm;
-	wm.set(world, blockDefs);
+	wm.set(world, blockDefs, player);
 
 	{
 		worldShader.use();
@@ -980,79 +985,94 @@ int main()
 
 			if (rclis.ls == ListenState::First && !(front == player.pos))
 			{
-				BlockData &bd = world.blocks[front.x][front.y][front.z];
+				// BlockData &bd = world.blocks[front.x][front.y][front.z];
 
-				bd.type = cmdBox.pallete;
+				// bd.type = cmdBox.pallete;
 
-				world.blocks[front.x - 1][front.y + 1][front.z - 1].needUpdate = true;
-				world.blocks[front.x - 1][front.y + 1][front.z].needUpdate	   = true;
-				world.blocks[front.x - 1][front.y + 1][front.z + 1].needUpdate = true;
-				world.blocks[front.x + 0][front.y + 1][front.z - 1].needUpdate = true;
-				world.blocks[front.x + 0][front.y + 1][front.z].needUpdate	   = true;
-				world.blocks[front.x + 0][front.y + 1][front.z + 1].needUpdate = true;
-				world.blocks[front.x + 1][front.y + 1][front.z - 1].needUpdate = true;
-				world.blocks[front.x + 1][front.y + 1][front.z].needUpdate	   = true;
-				world.blocks[front.x + 1][front.y + 1][front.z + 1].needUpdate = true;
+				// world.blocks[front.x - 1][front.y + 1][front.z - 1].needUpdate =
+				// true; world.blocks[front.x - 1][front.y + 1][front.z].needUpdate
+				// = true; world.blocks[front.x - 1][front.y + 1][front.z +
+				// 1].needUpdate = true; world.blocks[front.x + 0][front.y + 1][front.z
+				// - 1].needUpdate = true; world.blocks[front.x + 0][front.y +
+				// 1][front.z].needUpdate	   = true; world.blocks[front.x +
+				// 0][front.y + 1][front.z + 1].needUpdate = true; world.blocks[front.x
+				// + 1][front.y + 1][front.z - 1].needUpdate = true;
+				// world.blocks[front.x + 1][front.y + 1][front.z].needUpdate	   =
+				// true; world.blocks[front.x + 1][front.y + 1][front.z + 1].needUpdate
+				// = true;
+				//
+				// world.blocks[front.x - 1][front.y + 0][front.z - 1].needUpdate =
+				// true; world.blocks[front.x - 1][front.y + 0][front.z].needUpdate
+				// = true; world.blocks[front.x - 1][front.y + 0][front.z +
+				// 1].needUpdate = true; world.blocks[front.x + 0][front.y + 0][front.z
+				// - 1].needUpdate = true; world.blocks[front.x + 0][front.y +
+				// 0][front.z].needUpdate	   = true; world.blocks[front.x +
+				// 0][front.y + 0][front.z + 1].needUpdate = true; world.blocks[front.x
+				// + 1][front.y + 0][front.z - 1].needUpdate = true;
+				// world.blocks[front.x + 1][front.y + 0][front.z].needUpdate	   =
+				// true; world.blocks[front.x + 1][front.y + 0][front.z + 1].needUpdate
+				// = true;
+				//
+				// world.blocks[front.x - 1][front.y - 1][front.z - 1].needUpdate =
+				// true; world.blocks[front.x - 1][front.y - 1][front.z].needUpdate
+				// = true; world.blocks[front.x - 1][front.y - 1][front.z +
+				// 1].needUpdate = true; world.blocks[front.x + 0][front.y - 1][front.z
+				// - 1].needUpdate = true; world.blocks[front.x + 0][front.y -
+				// 1][front.z].needUpdate	   = true; world.blocks[front.x +
+				// 0][front.y - 1][front.z + 1].needUpdate = true; world.blocks[front.x
+				// + 1][front.y - 1][front.z - 1].needUpdate = true;
+				// world.blocks[front.x + 1][front.y - 1][front.z].needUpdate	   =
+				// true; world.blocks[front.x + 1][front.y - 1][front.z + 1].needUpdate
+				// = true;
 
-				world.blocks[front.x - 1][front.y + 0][front.z - 1].needUpdate = true;
-				world.blocks[front.x - 1][front.y + 0][front.z].needUpdate	   = true;
-				world.blocks[front.x - 1][front.y + 0][front.z + 1].needUpdate = true;
-				world.blocks[front.x + 0][front.y + 0][front.z - 1].needUpdate = true;
-				world.blocks[front.x + 0][front.y + 0][front.z].needUpdate	   = true;
-				world.blocks[front.x + 0][front.y + 0][front.z + 1].needUpdate = true;
-				world.blocks[front.x + 1][front.y + 0][front.z - 1].needUpdate = true;
-				world.blocks[front.x + 1][front.y + 0][front.z].needUpdate	   = true;
-				world.blocks[front.x + 1][front.y + 0][front.z + 1].needUpdate = true;
-
-				world.blocks[front.x - 1][front.y - 1][front.z - 1].needUpdate = true;
-				world.blocks[front.x - 1][front.y - 1][front.z].needUpdate	   = true;
-				world.blocks[front.x - 1][front.y - 1][front.z + 1].needUpdate = true;
-				world.blocks[front.x + 0][front.y - 1][front.z - 1].needUpdate = true;
-				world.blocks[front.x + 0][front.y - 1][front.z].needUpdate	   = true;
-				world.blocks[front.x + 0][front.y - 1][front.z + 1].needUpdate = true;
-				world.blocks[front.x + 1][front.y - 1][front.z - 1].needUpdate = true;
-				world.blocks[front.x + 1][front.y - 1][front.z].needUpdate	   = true;
-				world.blocks[front.x + 1][front.y - 1][front.z + 1].needUpdate = true;
-
-				wm.set(world, blockDefs);
+				// wm.set(world, blockDefs);
 			}
 			if (lclis.ls == ListenState::First && focused)
 			{
-				BlockData &bd = world.blocks[selected.x][selected.y][selected.z];
+				// BlockData &bd = world.blocks[selected.x][selected.y][selected.z];
 
-				bd.type = world.air;
+				// bd.type = world.air;
 
-				world.blocks[selected.x - 1][selected.y + 1][selected.z - 1].needUpdate = true;
-				world.blocks[selected.x - 1][selected.y + 1][selected.z].needUpdate		= true;
-				world.blocks[selected.x - 1][selected.y + 1][selected.z + 1].needUpdate = true;
-				world.blocks[selected.x + 0][selected.y + 1][selected.z - 1].needUpdate = true;
-				world.blocks[selected.x + 0][selected.y + 1][selected.z].needUpdate		= true;
-				world.blocks[selected.x + 0][selected.y + 1][selected.z + 1].needUpdate = true;
-				world.blocks[selected.x + 1][selected.y + 1][selected.z - 1].needUpdate = true;
-				world.blocks[selected.x + 1][selected.y + 1][selected.z].needUpdate		= true;
-				world.blocks[selected.x + 1][selected.y + 1][selected.z + 1].needUpdate = true;
+				// world.blocks[selected.x - 1][selected.y + 1][selected.z -
+				// 1].needUpdate = true; world.blocks[selected.x - 1][selected.y +
+				// 1][selected.z].needUpdate		= true; world.blocks[selected.x
+				// - 1][selected.y + 1][selected.z + 1].needUpdate = true;
+				// world.blocks[selected.x + 0][selected.y + 1][selected.z -
+				// 1].needUpdate = true; world.blocks[selected.x + 0][selected.y +
+				// 1][selected.z].needUpdate		= true; world.blocks[selected.x
+				// + 0][selected.y + 1][selected.z + 1].needUpdate = true;
+				// world.blocks[selected.x + 1][selected.y + 1][selected.z -
+				// 1].needUpdate = true; world.blocks[selected.x + 1][selected.y +
+				// 1][selected.z].needUpdate		= true; world.blocks[selected.x
+				// + 1][selected.y + 1][selected.z + 1].needUpdate = true;
+				//
+				// world.blocks[selected.x - 1][selected.y + 0][selected.z -
+				// 1].needUpdate = true; world.blocks[selected.x - 1][selected.y +
+				// 0][selected.z].needUpdate		= true; world.blocks[selected.x
+				// - 1][selected.y + 0][selected.z + 1].needUpdate = true;
+				// world.blocks[selected.x + 0][selected.y + 0][selected.z -
+				// 1].needUpdate = true; world.blocks[selected.x + 0][selected.y +
+				// 0][selected.z].needUpdate		= true; world.blocks[selected.x
+				// + 0][selected.y + 0][selected.z + 1].needUpdate = true;
+				// world.blocks[selected.x + 1][selected.y + 0][selected.z -
+				// 1].needUpdate = true; world.blocks[selected.x + 1][selected.y +
+				// 0][selected.z].needUpdate		= true; world.blocks[selected.x
+				// + 1][selected.y + 0][selected.z + 1].needUpdate = true;
+				//
+				// world.blocks[selected.x - 1][selected.y - 1][selected.z -
+				// 1].needUpdate = true; world.blocks[selected.x - 1][selected.y -
+				// 1][selected.z].needUpdate		= true; world.blocks[selected.x
+				// - 1][selected.y - 1][selected.z + 1].needUpdate = true;
+				// world.blocks[selected.x + 0][selected.y - 1][selected.z -
+				// 1].needUpdate = true; world.blocks[selected.x + 0][selected.y -
+				// 1][selected.z].needUpdate		= true; world.blocks[selected.x
+				// + 0][selected.y - 1][selected.z + 1].needUpdate = true;
+				// world.blocks[selected.x + 1][selected.y - 1][selected.z -
+				// 1].needUpdate = true; world.blocks[selected.x + 1][selected.y -
+				// 1][selected.z].needUpdate		= true; world.blocks[selected.x
+				// + 1][selected.y - 1][selected.z + 1].needUpdate = true;
 
-				world.blocks[selected.x - 1][selected.y + 0][selected.z - 1].needUpdate = true;
-				world.blocks[selected.x - 1][selected.y + 0][selected.z].needUpdate		= true;
-				world.blocks[selected.x - 1][selected.y + 0][selected.z + 1].needUpdate = true;
-				world.blocks[selected.x + 0][selected.y + 0][selected.z - 1].needUpdate = true;
-				world.blocks[selected.x + 0][selected.y + 0][selected.z].needUpdate		= true;
-				world.blocks[selected.x + 0][selected.y + 0][selected.z + 1].needUpdate = true;
-				world.blocks[selected.x + 1][selected.y + 0][selected.z - 1].needUpdate = true;
-				world.blocks[selected.x + 1][selected.y + 0][selected.z].needUpdate		= true;
-				world.blocks[selected.x + 1][selected.y + 0][selected.z + 1].needUpdate = true;
-
-				world.blocks[selected.x - 1][selected.y - 1][selected.z - 1].needUpdate = true;
-				world.blocks[selected.x - 1][selected.y - 1][selected.z].needUpdate		= true;
-				world.blocks[selected.x - 1][selected.y - 1][selected.z + 1].needUpdate = true;
-				world.blocks[selected.x + 0][selected.y - 1][selected.z - 1].needUpdate = true;
-				world.blocks[selected.x + 0][selected.y - 1][selected.z].needUpdate		= true;
-				world.blocks[selected.x + 0][selected.y - 1][selected.z + 1].needUpdate = true;
-				world.blocks[selected.x + 1][selected.y - 1][selected.z - 1].needUpdate = true;
-				world.blocks[selected.x + 1][selected.y - 1][selected.z].needUpdate		= true;
-				world.blocks[selected.x + 1][selected.y - 1][selected.z + 1].needUpdate = true;
-
-				wm.set(world, blockDefs);
+				// wm.set(world, blockDefs);
 			}
 
 			if (event.isKeyPressed(agl::Key::T))
@@ -1073,6 +1093,13 @@ int main()
 		}
 
 		window.setViewport(0, 0, windowSize.x, windowSize.y);
+
+		agl::Vec<int, 3> chunkPos = player.pos / 16;
+		chunkPos.y = 0;
+		if(!(chunkPos == wm.chunkPos))
+		{
+			wm.set(world, blockDefs, player);
+		}
 	}
 
 	font.deleteFont();
