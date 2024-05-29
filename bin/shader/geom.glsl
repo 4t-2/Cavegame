@@ -81,8 +81,9 @@ float x1y0 = 0;
 float x1y1 = 0;
 vec3 tint = vec3(0, 0, 0);
 int exists = 0;
+float normShade;
 
-void updateConsts(int i, float f2, float f3)
+void updateConsts(int i, float f2, float f3, vec3 norm)
 {
 	int b1 = floatBitsToInt(f2);
 	int b2 = floatBitsToInt(f3);
@@ -114,12 +115,19 @@ void updateConsts(int i, float f2, float f3)
 		int tintid = extract(i, 2, 8);
 		tint = tintArr[tintid];
 	}
+	
+	normShade = length(norm * vec3(151./255., 84./85., 202./255.));
+
+	if(norm.y < 0)
+	{
+		normShade = 25./51.;
+	}
 }
 
 void createVertex(vec4 offset, float aoc, vec2 uv)
 {
 	gl_Position = mvp * vec4((transform * offset).xyz, 1);
-	fragColor = vec4(tint * aoc, 1);
+	fragColor = vec4(tint * aoc * normShade, 1);
 	UVcoord = uv;
 	EmitVertex();
 }
@@ -132,7 +140,7 @@ void main() {
 	vec4 buf3 = idToSample((id * 3) + 2);
 
 	{
-		updateConsts(floatBitsToInt(gl_in[3].gl_Position.x), buf1.x, buf1.y);
+		updateConsts(floatBitsToInt(gl_in[3].gl_Position.x), buf1.x, buf1.y, vec3(0, 1, 0));
 
 		if(exists == 1)
 		{
@@ -149,7 +157,7 @@ void main() {
 	}
 
 	{
-		updateConsts(floatBitsToInt(gl_in[3].gl_Position.x) >> 16, buf1.z, buf1.w);
+		updateConsts(floatBitsToInt(gl_in[3].gl_Position.x) >> 16, buf1.z, buf1.w, vec3(0, -1, 0));
 
 		if(exists == 1)
 		{
@@ -166,7 +174,7 @@ void main() {
 	}
 
 	{
-		updateConsts(floatBitsToInt(gl_in[3].gl_Position.y), buf2.x, buf2.y);
+		updateConsts(floatBitsToInt(gl_in[3].gl_Position.y), buf2.x, buf2.y, vec3(0, 0, -1));
 
 		if(exists == 1)
 		{
@@ -183,7 +191,7 @@ void main() {
 	}
 
 	{
-		updateConsts(floatBitsToInt(gl_in[3].gl_Position.y) >> 16, buf2.z, buf2.w);
+		updateConsts(floatBitsToInt(gl_in[3].gl_Position.y) >> 16, buf2.z, buf2.w, vec3(0, 0, 1));
 
 		if(exists == 1)
 		{
@@ -200,7 +208,7 @@ void main() {
 	}
 
 	{
-		updateConsts(floatBitsToInt(gl_in[3].gl_Position.z), buf3.x, buf3.y);
+		updateConsts(floatBitsToInt(gl_in[3].gl_Position.z), buf3.x, buf3.y, vec3(-1, 0, 0));
 
 		if(exists == 1)
 		{
@@ -217,7 +225,7 @@ void main() {
 	}
 
 	{
-		updateConsts(floatBitsToInt(gl_in[3].gl_Position.z) >> 16, buf3.z, buf3.w);
+		updateConsts(floatBitsToInt(gl_in[3].gl_Position.z) >> 16, buf3.z, buf3.w, vec3(1, 0, 0));
 
 		if(exists == 1)
 		{

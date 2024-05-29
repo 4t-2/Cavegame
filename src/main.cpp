@@ -163,7 +163,7 @@ void movePlayer(Player &player, agl::Vec<float, 3> acc)
 	player.pos += player.vel;
 
 	player.vel.y *= 0.98;
-	// player.vel.y += GRAVACC;
+	player.vel.y += GRAVACC;
 }
 
 struct Collision
@@ -473,9 +473,9 @@ class WorldMesh
 				done.push_back(it->pos);
 			}
 	
-			for (int x = -1; x <= 1; x++)
+			for (int x = -0; x <= 0; x++)
 			{
-				for (int y = -1; y <= 1; y++)
+				for (int y = -0; y <= 0; y++)
 				{
 					agl::Vec<int, 3> cursor = {x, 0, y};
 					if (cursor.length() > 1 || cursor.x < 0 || cursor.z < 0)
