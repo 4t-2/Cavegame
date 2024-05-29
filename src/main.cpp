@@ -1,5 +1,6 @@
 #include <AXIS/ax.hpp>
 
+#include <atomic>
 #include <bitset>
 #include <cctype>
 #include <chrono>
@@ -10,6 +11,7 @@
 #include <ctime>
 #include <fstream>
 #include <math.h>
+#include <mutex>
 #include <string>
 #include <thread>
 
@@ -161,7 +163,7 @@ void movePlayer(Player &player, agl::Vec<float, 3> acc)
 	player.pos += player.vel;
 
 	player.vel.y *= 0.98;
-	player.vel.y += GRAVACC;
+	// player.vel.y += GRAVACC;
 }
 
 struct Collision
@@ -417,30 +419,108 @@ class CommandBox : public agl::Drawable
 		}
 };
 
+struct ChunkMesh
+{
+		agl::Vec<int, 3> pos;
+		agl::GLPrimative mesh;
+		bool			 ready	= false;
+		bool			 unload = false;
+
+		ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 3> chunkPos);
+
+		~ChunkMesh()
+		{
+			mesh.deleteData();
+		}
+};
+
 class WorldMesh
 {
 	public:
 		agl::GLPrimative glp;
 
-		agl::Vec<int, 3> chunkPos;
+		std::mutex mut;
 
-		void set(World &world, std::vector<Block> &blockDefs, Player &player);
+		std::list<ChunkMesh> mesh;
 
-		void draw(agl::RenderWindow &rw)
+		agl::Vec<int, 3> playerChunkPos;
+
+		void load(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 3> chunkPos)
 		{
-			rw.drawPrimative(glp);
+			mesh.emplace_back(world, blockDefs, chunkPos);
+		}
+
+		void draw(agl::RenderWindow &rw, Player &p, World &world, std::vector<Block> &blockDefs)
+		{
+			playerChunkPos	 = p.pos / 16;
+			playerChunkPos.y = 0;
+
+			std::vector<agl::Vec<int, 3>> done;
+			for (auto it = mesh.begin(); it != mesh.end(); it++)
+			{
+				if ((it->pos - playerChunkPos).length() > 2)
+				{
+					std::cout << "erase: " << it->pos << '\n';
+					auto i = it;
+					i = std::next(i, -1);
+					mesh.erase(it);
+					it = i;
+					continue;
+				}
+
+				rw.drawPrimative((*it).mesh);
+
+				done.push_back(it->pos);
+			}
+	
+			for (int x = -1; x <= 1; x++)
+			{
+				for (int y = -1; y <= 1; y++)
+				{
+					agl::Vec<int, 3> cursor = {x, 0, y};
+					if (cursor.length() > 1 || cursor.x < 0 || cursor.z < 0)
+					{
+						continue;
+					}
+
+					cursor += playerChunkPos;
+
+					bool found = false;
+					for (auto it = done.begin(); it != done.end(); it++)
+					{
+						if (*it == cursor)
+						{
+							found = true;
+							done.erase(it);
+							goto skip;
+						}
+					}
+					if (!found)
+					{
+						std::cout << "adding " << cursor << '\n';
+						mesh.emplace_back(world, blockDefs, cursor);
+					}
+
+				skip:;
+				}
+			}
 		}
 };
 
-void WorldMesh::set(World &world, std::vector<Block> &blockDefs, Player &player)
+ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 3> chunkPos) : pos(chunkPos)
 {
-	chunkPos = player.pos / 16;
-	chunkPos.y = 0;
 	agl::Vec<int, 3> chunkPosBig = chunkPos * 16;
+
+	if (world.loadedChunks.count(chunkPos) == 0)
+	{
+		return;
+	}
+
 	ChunkRaw &chunk = world.loadedChunks[chunkPos];
 
-	glp.deleteData();
 	std::vector<float> posList;
+
+	posList.reserve(32768);
 
 	for (int x = 0; x < 16; x++)
 	{
@@ -641,10 +721,32 @@ void WorldMesh::set(World &world, std::vector<Block> &blockDefs, Player &player)
 		}
 	}
 
-	glp.genBuffers(1);
-	glp.setMode(GL_LINES_ADJACENCY);
-	glp.setVertexAmount(posList.size() / 4);
-	glp.setBufferData(0, &posList[0], 4);
+	mesh.genBuffers(1);
+	mesh.setMode(GL_LINES_ADJACENCY);
+	mesh.setVertexAmount(posList.size() / 4);
+	mesh.setBufferData(0, &posList[0], 4);
+}
+
+void chunkLoadThread(WorldMesh &wm, Player &p)
+{
+	wm.mut.lock();
+	auto it = wm.mesh.begin();
+	wm.mut.unlock();
+
+	while (true)
+	{
+		agl::Vec<int, 3> chunkPos = p.pos / 16;
+
+		wm.mut.lock();
+
+		for (auto &m : wm.mesh)
+		{
+		}
+
+		wm.mut.unlock();
+
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+	}
 }
 
 int main()
@@ -825,7 +927,6 @@ int main()
 	std::cout << "entering" << '\n';
 
 	WorldMesh wm;
-	wm.set(world, blockDefs, player);
 
 	{
 		worldShader.use();
@@ -869,7 +970,7 @@ int main()
 		agl::Texture::bind(elementDataTexture);
 		glActiveTexture(GL_TEXTURE0 + 0);
 		agl::Texture::bind(atlas.texture);
-		wm.draw(window);
+		wm.draw(window, player, world, blockDefs);
 
 		glDisable(GL_DEPTH_TEST);
 
@@ -1095,11 +1196,7 @@ int main()
 		window.setViewport(0, 0, windowSize.x, windowSize.y);
 
 		agl::Vec<int, 3> chunkPos = player.pos / 16;
-		chunkPos.y = 0;
-		if(!(chunkPos == wm.chunkPos))
-		{
-			wm.set(world, blockDefs, player);
-		}
+		chunkPos.y				  = 0;
 	}
 
 	font.deleteFont();
