@@ -423,14 +423,32 @@ struct ChunkMesh
 {
 		agl::Vec<int, 3> pos;
 		agl::GLPrimative mesh;
-		bool			 ready	= false;
-		bool			 unload = false;
+		bool			 baked = false;
+
+		std::vector<float> posList;
 
 		ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 3> chunkPos);
 
 		~ChunkMesh()
 		{
 			mesh.deleteData();
+		}
+
+		void draw(agl::RenderWindow &w)
+		{
+			if (!baked)
+			{
+				mesh.genBuffers(1);
+				mesh.setMode(GL_LINES_ADJACENCY);
+				mesh.setVertexAmount(posList.size() / 4);
+				mesh.setBufferData(0, &posList[0], 4);
+
+				posList.clear();
+
+				baked = true;
+			}
+
+			w.drawPrimative(mesh);
 		}
 };
 
@@ -439,43 +457,83 @@ class WorldMesh
 	public:
 		agl::GLPrimative glp;
 
-		std::mutex mut;
-
 		std::list<ChunkMesh> mesh;
 
-		agl::Vec<int, 3> playerChunkPos;
+		std::mutex		 mutPos;
+		agl::Vec<int, 3> playerChunkPos = {0, 0, 0};
 
-		void load(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 3> chunkPos)
+		// true - queue full, build thread halt, draw thread add
+		// false - queue empty, build thread makes, draw thread draws
+		bool										hasDiffs = false;
+		std::vector<std::list<ChunkMesh>::iterator> toDestroy;
+		std::list<ChunkMesh>						toAdd;
+
+		std::vector<Block> &blockDefs;
+		World			   &world;
+
+		WorldMesh(World &world, std::vector<Block> &blockDefs) : blockDefs(blockDefs), world(world)
 		{
-			mesh.emplace_back(world, blockDefs, chunkPos);
 		}
 
-		void draw(agl::RenderWindow &rw, Player &p, World &world, std::vector<Block> &blockDefs)
+		void draw(agl::RenderWindow &rw, Player &p)
 		{
+			mutPos.lock();
 			playerChunkPos	 = p.pos / 16;
 			playerChunkPos.y = 0;
+			mutPos.unlock();
 
-			std::vector<agl::Vec<int, 3>> done;
 			for (auto it = mesh.begin(); it != mesh.end(); it++)
 			{
-				if ((it->pos - playerChunkPos).length() > 2)
+				it->draw(rw);
+			}
+
+			if (hasDiffs)
+			{
+				std::cout << "diffin" << '\n';
+				for (auto &e : toDestroy)
 				{
-					std::cout << "erase: " << it->pos << '\n';
-					auto i = it;
-					i = std::next(i, -1);
-					mesh.erase(it);
-					it = i;
-					continue;
+					mesh.erase(e);
 				}
 
-				rw.drawPrimative((*it).mesh);
+				toDestroy.clear();
 
-				done.push_back(it->pos);
+				mesh.splice(mesh.end(), toAdd);
+
+				hasDiffs = false;
 			}
-	
-			for (int x = -0; x <= 0; x++)
+		}
+};
+
+void buildThread(WorldMesh &wm, agl::Event &e)
+{
+	while (true)
+	{
+		if (e.windowClose())
+		{
+			break;
+		}
+
+		if (!wm.hasDiffs)
+		{
+			wm.mutPos.lock();
+			agl::Vec<int, 3> playerChunkPos = wm.playerChunkPos;
+			wm.mutPos.unlock();
+
+			bool changesMade = false;
+
+			for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
 			{
-				for (int y = -0; y <= 0; y++)
+				if ((it->pos - wm.playerChunkPos).length() > 2)
+				{
+					std::cout << "to destroy - " << it->pos << '\n';
+					wm.toDestroy.push_back(it);
+					changesMade = true;
+				}
+			}
+
+			for (int x = -1; x <= 1; x++)
+			{
+				for (int y = -1; y <= 1; y++)
 				{
 					agl::Vec<int, 3> cursor = {x, 0, y};
 					if (cursor.length() > 1 || cursor.x < 0 || cursor.z < 0)
@@ -483,29 +541,31 @@ class WorldMesh
 						continue;
 					}
 
-					cursor += playerChunkPos;
+					cursor += wm.playerChunkPos;
 
-					bool found = false;
-					for (auto it = done.begin(); it != done.end(); it++)
+					for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
 					{
-						if (*it == cursor)
+						if (it->pos == cursor)
 						{
-							found = true;
-							done.erase(it);
 							goto skip;
 						}
 					}
-					if (!found)
-					{
-						std::cout << "adding " << cursor << '\n';
-						mesh.emplace_back(world, blockDefs, cursor);
-					}
+
+					std::cout << "to add - " << cursor << '\n';
+					wm.toAdd.emplace_back(wm.world, wm.blockDefs, cursor);
+					changesMade = true;
 
 				skip:;
 				}
 			}
+
+			if (changesMade)
+			{
+				wm.hasDiffs = true;
+			}
 		}
-};
+	}
+}
 
 ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 3> chunkPos) : pos(chunkPos)
 {
@@ -517,8 +577,6 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 	}
 
 	ChunkRaw &chunk = world.loadedChunks[chunkPos];
-
-	std::vector<float> posList;
 
 	posList.reserve(32768);
 
@@ -720,33 +778,6 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 			}
 		}
 	}
-
-	mesh.genBuffers(1);
-	mesh.setMode(GL_LINES_ADJACENCY);
-	mesh.setVertexAmount(posList.size() / 4);
-	mesh.setBufferData(0, &posList[0], 4);
-}
-
-void chunkLoadThread(WorldMesh &wm, Player &p)
-{
-	wm.mut.lock();
-	auto it = wm.mesh.begin();
-	wm.mut.unlock();
-
-	while (true)
-	{
-		agl::Vec<int, 3> chunkPos = p.pos / 16;
-
-		wm.mut.lock();
-
-		for (auto &m : wm.mesh)
-		{
-		}
-
-		wm.mut.unlock();
-
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-	}
 }
 
 int main()
@@ -926,7 +957,11 @@ int main()
 
 	std::cout << "entering" << '\n';
 
-	WorldMesh wm;
+	WorldMesh wm(world, blockDefs);
+
+	wm.mesh.emplace_back(wm.world, wm.blockDefs, agl::Vec<int, 3>{0, 0, 0});
+
+	std::thread thread(buildThread, std::ref(wm), std::ref(event));
 
 	{
 		worldShader.use();
@@ -938,6 +973,10 @@ int main()
 
 		glUniform1i(id, 0);
 	}
+
+	std::cout << "waiting for chunk" << '\n';
+
+	std::cout << "entering" << '\n';
 
 	while (!event.windowClose())
 	{
@@ -970,7 +1009,7 @@ int main()
 		agl::Texture::bind(elementDataTexture);
 		glActiveTexture(GL_TEXTURE0 + 0);
 		agl::Texture::bind(atlas.texture);
-		wm.draw(window, player, world, blockDefs);
+		wm.draw(window, player);
 
 		glDisable(GL_DEPTH_TEST);
 
