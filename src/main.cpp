@@ -77,6 +77,23 @@ agl::Vec<float, 2> getCursorScenePosition(agl::Vec<float, 2> cursorWinPos, agl::
 	return ((cursorWinPos - (winSize * .5)) * winScale) + cameraPos;
 }
 
+
+// inline bool &vecToMap(bool arr[3][3][3], agl::Vec<int, 3> vec)
+// {
+// 	return arr[1 + vec.x][1 + vec.y][1 + vec.z];
+// }
+//
+// inline bool &vecToArr(bool arr[3][3][3], agl::Vec<int, 3> vec)
+// {
+// 	return arr[vec.x][vec.y][vec.z];
+// }
+//
+// unsigned int AmOcCalc(bool blockMap[3][3][3], agl::Vec<int, 3> norm, agl::Vec<int, 3> acc1, agl::Vec<int, 3> acc2)
+// {
+// 	bool &cornerTouch = vecToMap(blockMap, norm + acc1 + acc2);
+// 	bool &lineTouch	  = vecToMap(blockMap, norm + acc1);
+// 	bool &oppo		  = vecToMap(blockMap, norm + acc2);
+
 unsigned int AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int, 3> acc1, agl::Vec<int, 3> acc2,
 					  World &world)
 {
@@ -467,7 +484,7 @@ class WorldMesh
 
 		// true - queue full, build thread halt, draw thread add
 		// false - queue empty, build thread makes, draw thread draws
-		bool										hasDiffs = false;
+		std::atomic<bool>										hasDiffs = false;
 		std::vector<std::list<ChunkMesh>::iterator> toDestroy;
 		std::list<ChunkMesh>						toAdd;
 
@@ -565,6 +582,7 @@ void buildThread(WorldMesh &wm, agl::Event &e)
 			}
 		}
 	}
+	std::cout << "build thread end" << '\n';
 }
 
 ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 3> chunkPos) : pos(chunkPos)
@@ -580,6 +598,8 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 	ChunkRaw &chunk = world.loadedChunks[chunkPos];
 
 	posList.reserve(32768);
+	
+	bool blockMap[3][3][3];
 
 	for (int x = 0; x < 16; x++)
 	{
@@ -596,8 +616,8 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 					continue;
 				}
 
-				block.exposed.nonvis = true;
-
+				// block.exposed.nonvis = true;
+				//
 				// if (y + 1 >= 385)
 				// {
 				// 	block.exposed.up = false;
@@ -715,7 +735,7 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 				// {
 				// 	block.exposed.west = false;
 				// }
-
+				//
 				// if (!block.exposed.nonvis)
 				{
 					for (auto &e : blockDefs[block.type].elements)
