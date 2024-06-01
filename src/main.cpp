@@ -77,7 +77,6 @@ agl::Vec<float, 2> getCursorScenePosition(agl::Vec<float, 2> cursorWinPos, agl::
 	return ((cursorWinPos - (winSize * .5)) * winScale) + cameraPos;
 }
 
-
 // inline bool &vecToMap(bool arr[3][3][3], agl::Vec<int, 3> vec)
 // {
 // 	return arr[1 + vec.x][1 + vec.y][1 + vec.z];
@@ -88,7 +87,8 @@ agl::Vec<float, 2> getCursorScenePosition(agl::Vec<float, 2> cursorWinPos, agl::
 // 	return arr[vec.x][vec.y][vec.z];
 // }
 //
-// unsigned int AmOcCalc(bool blockMap[3][3][3], agl::Vec<int, 3> norm, agl::Vec<int, 3> acc1, agl::Vec<int, 3> acc2)
+// unsigned int AmOcCalc(bool blockMap[3][3][3], agl::Vec<int, 3> norm,
+// agl::Vec<int, 3> acc1, agl::Vec<int, 3> acc2)
 // {
 // 	bool &cornerTouch = vecToMap(blockMap, norm + acc1 + acc2);
 // 	bool &lineTouch	  = vecToMap(blockMap, norm + acc1);
@@ -465,7 +465,8 @@ struct ChunkMesh
 
 				baked	 = true;
 				auto end = std::chrono::high_resolution_clock::now();
-				std::cout << "transfer took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << '\n';
+				std::cout << "transfer took "
+						  << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << '\n';
 			}
 
 			w.drawPrimative(mesh);
@@ -484,7 +485,7 @@ class WorldMesh
 
 		// true - queue full, build thread halt, draw thread add
 		// false - queue empty, build thread makes, draw thread draws
-		std::atomic<bool>										hasDiffs = false;
+		std::atomic<bool>							hasDiffs = false;
 		std::vector<std::list<ChunkMesh>::iterator> toDestroy;
 		std::list<ChunkMesh>						toAdd;
 
@@ -598,7 +599,7 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 	ChunkRaw &chunk = world.loadedChunks[chunkPos];
 
 	posList.reserve(32768);
-	
+
 	bool blockMap[3][3][3];
 
 	for (int x = 0; x < 16; x++)
@@ -616,127 +617,127 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 					continue;
 				}
 
-				// block.exposed.nonvis = true;
-				//
-				// if (y + 1 >= 385)
-				// {
-				// 	block.exposed.up = false;
-				// }
-				// else if (chunk.blocks[x][y + 1][z].type == world.air || chunk.blocks[x][y + 1][z].type == world.leaves)
-				// {
-				// 	block.exposed.nonvis = false;
-				// 	block.exposed.up	 = true;
-				//
-				// 	block.aoc.up.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
-				// 	block.aoc.up.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, world);
-				// 	block.aoc.up.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
-				// 	block.aoc.up.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, world);
-				// }
-				// else
-				// {
-				// 	block.exposed.up = false;
-				// }
-				//
-				// if (y - 1 <= 0)
-				// {
-				// 	block.exposed.down = false;
-				// }
-				// else if (chunk.blocks[x][y - 1][z].type == world.air || chunk.blocks[x][y - 1][z].type == world.leaves)
-				// {
-				// 	block.exposed.nonvis = false;
-				// 	block.exposed.down	 = true;
-				//
-				// 	block.aoc.down.x0y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
-				// 	block.aoc.down.x1y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, world);
-				// 	block.aoc.down.x0y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
-				// 	block.aoc.down.x1y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, world);
-				// }
-				// else
-				// {
-				// 	block.exposed.down = false;
-				// }
-				//
-				// // z
-				//
-				// if (z + 1 >= 16)
-				// {
-				// 	block.exposed.north = false;
-				// }
-				// else if (chunk.blocks[x][y][z + 1].type == world.air || chunk.blocks[x][y][z + 1].type == world.leaves)
-				// {
-				// 	block.exposed.nonvis = false;
-				// 	block.exposed.north	 = true;
-				//
-				// 	block.aoc.north.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, world);
-				// 	block.aoc.north.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, world);
-				// 	block.aoc.north.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, world);
-				// 	block.aoc.north.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, world);
-				// }
-				// else
-				// {
-				// 	block.exposed.north = false;
-				// }
-				//
-				// if (z - 1 <= 0)
-				// {
-				// 	block.exposed.south = false;
-				// }
-				// else if (chunk.blocks[x][y][z - 1].type == world.air || chunk.blocks[x][y][z - 1].type == world.leaves)
-				// {
-				// 	block.exposed.nonvis = false;
-				// 	block.exposed.south	 = true;
-				//
-				// 	block.aoc.south.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, world);
-				// 	block.aoc.south.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, world);
-				// 	block.aoc.south.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, world);
-				// 	block.aoc.south.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, world);
-				// }
-				// else
-				// {
-				// 	block.exposed.south = false;
-				// }
-				//
-				// // x
-				//
-				// if (x + 1 >= 16)
-				// {
-				// 	block.exposed.east = false;
-				// }
-				// else if (chunk.blocks[x + 1][y][z].type == world.air || chunk.blocks[x + 1][y][z].type == world.leaves)
-				// {
-				// 	block.exposed.nonvis = false;
-				// 	block.exposed.east	 = true;
-				//
-				// 	block.aoc.east.x0y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
-				// 	block.aoc.east.x1y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
-				// 	block.aoc.east.x0y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
-				// 	block.aoc.east.x1y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
-				// }
-				// else
-				// {
-				// 	block.exposed.east = false;
-				// }
-				//
-				// if (x - 1 <= 0)
-				// {
-				// 	block.exposed.west = false;
-				// }
-				// else if (chunk.blocks[x - 1][y][z].type == world.air || chunk.blocks[x - 1][y][z].type == world.leaves)
-				// {
-				// 	block.exposed.nonvis = false;
-				// 	block.exposed.west	 = true;
-				//
-				// 	block.aoc.west.x0y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
-				// 	block.aoc.west.x1y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
-				// 	block.aoc.west.x0y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
-				// 	block.aoc.west.x1y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
-				// }
-				// else
-				// {
-				// 	block.exposed.west = false;
-				// }
-				//
-				// if (!block.exposed.nonvis)
+				block.exposed.nonvis = true;
+
+				if (y + 1 >= 385)
+				{
+					block.exposed.up = false;
+				}
+				else if (chunk.blocks[x][y + 1][z].type == world.air || chunk.blocks[x][y + 1][z].type == world.leaves)
+				{
+					block.exposed.nonvis = false;
+					block.exposed.up	 = true;
+
+					block.aoc.up.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
+					block.aoc.up.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, world);
+					block.aoc.up.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
+					block.aoc.up.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, world);
+				}
+				else
+				{
+					block.exposed.up = false;
+				}
+
+				if (y - 1 <= 0)
+				{
+					block.exposed.down = false;
+				}
+				else if (chunk.blocks[x][y - 1][z].type == world.air || chunk.blocks[x][y - 1][z].type == world.leaves)
+				{
+					block.exposed.nonvis = false;
+					block.exposed.down	 = true;
+
+					block.aoc.down.x0y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
+					block.aoc.down.x1y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, world);
+					block.aoc.down.x0y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
+					block.aoc.down.x1y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, world);
+				}
+				else
+				{
+					block.exposed.down = false;
+				}
+
+				// z
+
+				if (z + 1 >= 16)
+				{
+					block.exposed.north = false;
+				}
+				else if (chunk.blocks[x][y][z + 1].type == world.air || chunk.blocks[x][y][z + 1].type == world.leaves)
+				{
+					block.exposed.nonvis = false;
+					block.exposed.north	 = true;
+
+					block.aoc.north.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, world);
+					block.aoc.north.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, world);
+					block.aoc.north.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, world);
+					block.aoc.north.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, world);
+				}
+				else
+				{
+					block.exposed.north = false;
+				}
+
+				if (z - 1 <= 0)
+				{
+					block.exposed.south = false;
+				}
+				else if (chunk.blocks[x][y][z - 1].type == world.air || chunk.blocks[x][y][z - 1].type == world.leaves)
+				{
+					block.exposed.nonvis = false;
+					block.exposed.south	 = true;
+
+					block.aoc.south.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, world);
+					block.aoc.south.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, world);
+					block.aoc.south.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, world);
+					block.aoc.south.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, world);
+				}
+				else
+				{
+					block.exposed.south = false;
+				}
+
+				// x
+
+				if (x + 1 >= 16)
+				{
+					block.exposed.east = false;
+				}
+				else if (chunk.blocks[x + 1][y][z].type == world.air || chunk.blocks[x + 1][y][z].type == world.leaves)
+				{
+					block.exposed.nonvis = false;
+					block.exposed.east	 = true;
+
+					block.aoc.east.x0y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
+					block.aoc.east.x1y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
+					block.aoc.east.x0y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
+					block.aoc.east.x1y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
+				}
+				else
+				{
+					block.exposed.east = false;
+				}
+
+				if (x - 1 <= 0)
+				{
+					block.exposed.west = false;
+				}
+				else if (chunk.blocks[x - 1][y][z].type == world.air || chunk.blocks[x - 1][y][z].type == world.leaves)
+				{
+					block.exposed.nonvis = false;
+					block.exposed.west	 = true;
+
+					block.aoc.west.x0y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
+					block.aoc.west.x1y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
+					block.aoc.west.x0y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
+					block.aoc.west.x1y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
+				}
+				else
+				{
+					block.exposed.west = false;
+				}
+
+				if (!block.exposed.nonvis)
 				{
 					for (auto &e : blockDefs[block.type].elements)
 					{

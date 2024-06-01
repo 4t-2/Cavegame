@@ -23,13 +23,17 @@
 // 		}
 // };
 
-namespace std {
-    template <>
-    struct hash<agl::Vec<int, 3>> {
-        
-        size_t operator() (const agl::Vec<int, 3>& v) const { return v.x * v.y * v.z; }
-    };
-}
+namespace std
+{
+	template <> struct hash<agl::Vec<int, 3>>
+	{
+
+			size_t operator()(const agl::Vec<int, 3> &v) const
+			{
+				return v.x * v.y * v.z;
+			}
+	};
+} // namespace std
 
 struct ChunkRaw
 {
@@ -37,6 +41,10 @@ struct ChunkRaw
 
 		BlockData &at(agl::Vec<int, 3> v)
 		{
+			if (v.y > 385)
+			{
+				std::cout << "awd" << '\n';
+			}
 			return blocks[v.x][v.y][v.z];
 		}
 };
@@ -45,10 +53,10 @@ class World
 {
 	public:
 		std::unordered_map<agl::Vec<int, 3>, ChunkRaw> loadedChunks;
-		agl::Vec<int, 3>					 size;
-		unsigned int						 air;
-		unsigned int						 cobblestone;
-		unsigned int						 leaves;
+		agl::Vec<int, 3>							   size;
+		unsigned int								   air;
+		unsigned int								   cobblestone;
+		unsigned int								   leaves;
 
 		World() : loadedChunks()
 		{
@@ -86,7 +94,7 @@ class World
 		{
 			agl::Vec<int, 3> chunkPos;
 			chunkPos.x = pos.x >> 4;
-			chunkPos.y = 0;
+			chunkPos.y = pos.y / 385;
 			chunkPos.z = pos.z >> 4;
 
 			if (loadedChunks.count(chunkPos) == 0)
@@ -94,7 +102,9 @@ class World
 				return false;
 			}
 
-			return loadedChunks[chunkPos].at(pos - (chunkPos * 16)).type != air;
+			return loadedChunks[chunkPos]
+					   .at(pos - agl::Vec<int, 3>{chunkPos.x * 16, chunkPos.y * 385, chunkPos.z * 16})
+					   .type != air;
 		}
 
 		void loadFromFile(std::string dir, std::map<std::string, int> &strToId);
@@ -103,9 +113,16 @@ class World
 		{
 			agl::Vec<int, 3> chunkPos;
 			chunkPos.x = pos.x >> 4;
-			chunkPos.y = 0;
+			chunkPos.y = pos.y / 385;
 			chunkPos.z = pos.z >> 4;
 
-			return loadedChunks[chunkPos].at(pos - (chunkPos * 16)).type;
+			if (loadedChunks.count(chunkPos) == 0 || pos.y < 0)
+			{
+				return air;
+			}
+
+			return loadedChunks[chunkPos]
+				.at(pos - agl::Vec<int, 3>{chunkPos.x * 16, chunkPos.y * 385, chunkPos.z * 16})
+				.type;
 		}
 };
