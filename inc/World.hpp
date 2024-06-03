@@ -109,6 +109,8 @@ class World
 
 		void loadFromFile(std::string dir, std::map<std::string, int> &strToId);
 
+		void generateRandom();
+
 		unsigned int &get(agl::Vec<int, 3> pos)
 		{
 			agl::Vec<int, 3> chunkPos;

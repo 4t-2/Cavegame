@@ -927,7 +927,7 @@ int main()
 
 	World world;
 	world.setBasics(blockDefs);
-	world.loadFromFile("world/region/r.0.0.mca", blockNameToDef);
+	world.generateRandom();
 
 	// {
 	// 	unsigned int cobblestone = 0;
