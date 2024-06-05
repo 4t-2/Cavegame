@@ -543,19 +543,19 @@ void buildThread(WorldMesh &wm, agl::Event &e)
 
 			for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
 			{
-				if ((it->pos - playerChunkPos).length() > 2)
+				if ((it->pos - playerChunkPos).length() > 4)
 				{
 					wm.toDestroy.push_back(it);
 					changesMade = true;
 				}
 			}
 
-			for (int x = -1; x <= 1; x++)
+			for (int x = -4; x <= 4; x++)
 			{
-				for (int y = -1; y <= 1; y++)
+				for (int y = -4; y <= 4; y++)
 				{
 					agl::Vec<int, 3> cursor = {x, 0, y};
-					if (cursor.length() > 1 || cursor.x < 0 || cursor.z < 0)
+					if (cursor.x < 0 || cursor.z < 0)
 					{
 						continue;
 					}

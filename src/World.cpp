@@ -20,19 +20,83 @@ int noiseFunc(agl::Vec<float, 3> pos)
 {
 	return sin(pos.x) * 5 + 100;
 }
+ 
+agl::Vec<float, 2> randomGradient(agl::Vec<int, 2> pos) {
+    const unsigned w = 8 * sizeof(unsigned);
+    const unsigned s = w / 2; 
+    unsigned a = pos.x, b = pos.y;
+    a *= 3284157443;
+ 
+    b ^= a << s | a >> (w - s);
+    b *= 1911520717;
+ 
+    a ^= b << s | b >> (w - s);
+    a *= 2048419325;
+    float random = a * (3.14159265 / ~(~0u >> 1)); // in [0, 2*Pi]
+    
+	agl::Vec<float, 2> v;
+    v.x = sin(random);
+    v.y = cos(random);
+ 
+    return v;
+}
+ 
+// Computes the dot product of the distance and gradient vectors.
+float dotGridGradient(agl::Vec<int, 2> chunkPos, agl::Vec<float, 2> pos) {
+    // Get gradient from integer coordinates
+	agl::Vec<float, 2> gradient = randomGradient(chunkPos);
+ 
+    // Compute the distance vector
+	agl::Vec<float, 2> dist = pos - chunkPos;
 
+    // Compute the dot-product
+    return (dist.dot(gradient));
+}
+ 
+float interpolate(float a0, float a1, float w)
+{
+    return (a1 - a0) * (3.0 - w * 2.0) * w * w + a0;
+}
+ 
+ 
+// Sample Perlin noise at coordinates x, y
+float perlin(agl::Vec<float, 2> pos) {
+   pos.x/=50;
+   pos.y/=50;
+
+    // Determine grid cell corner coordinates
+   agl::Vec<int, 2> chunk00 = pos; 
+ 
+    // Compute Interpolation weights
+    agl::Vec<float, 2> s = pos - chunk00;
+
+    // Compute and interpolate top two corners
+    float n0 = dotGridGradient({chunk00.x, chunk00.y}, pos);
+    float n1 = dotGridGradient({chunk00.x+1, chunk00.y}, pos);
+    float ix0 = interpolate(n0, n1, s.x);
+ 
+    // Compute and interpolate bottom two corners
+    n0 = dotGridGradient({chunk00.x, chunk00.y+1}, pos);
+    n1 = dotGridGradient({chunk00.x+1, chunk00.y+1}, pos);
+    float ix1 = interpolate(n0, n1, s.x);
+ 
+    // Final step: interpolate between the two previously interpolated values, now in y
+    float value = interpolate(ix0, ix1, s.y);
+    
+    return value;
+}
 void World::generateRandom()
 {
-	for (int x = 0; x < 32; x++)
+	for (int x1 = 0; x1 < 32; x1++)
 	{
-		for (int y = 0; y < 32; y++)
+		for (int y1 = 0; y1 < 32; y1++)
 		{
-			ChunkRaw &cr = loadedChunks[{x, 0, y}];
+			ChunkRaw &cr = loadedChunks[{x1, 0, y1}];
 			for (int x = 0; x < 16; x++)
 			{
 				for (int z = 0; z < 16; z++)
 				{
-					int height = ((float)rand() / (float)RAND_MAX) * 5 + 100;
+					int height = perlin({x1*16 + x, y1*16 + z}) * 30 + 100;
 
 					for(int y = 0; y < height; y++)
 					{
