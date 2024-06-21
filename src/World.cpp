@@ -8,7 +8,7 @@ agl::Vec<int, 3> conv(enkiMICoordinate p)
 long long xorshift(long long num)
 {
 	long long x = num;
-	
+
 	x ^= x << 13;
 	x ^= x >> 7;
 	x ^= x << 17;
@@ -20,71 +20,107 @@ int noiseFunc(agl::Vec<float, 3> pos)
 {
 	return sin(pos.x) * 5 + 100;
 }
- 
-agl::Vec<float, 2> randomGradient(agl::Vec<int, 2> pos) {
-    const unsigned w = 8 * sizeof(unsigned);
-    const unsigned s = w / 2; 
-    unsigned a = pos.x, b = pos.y;
-    a *= 3284157443;
- 
-    b ^= a << s | a >> (w - s);
-    b *= 1911520717;
- 
-    a ^= b << s | b >> (w - s);
-    a *= 2048419325;
-    float random = a * (3.14159265 / ~(~0u >> 1)); // in [0, 2*Pi]
-    
-	agl::Vec<float, 2> v;
-    v.x = sin(random);
-    v.y = cos(random);
- 
-    return v;
+
+unsigned long long genRand(unsigned long long seed)
+{
+	unsigned int	   a = seed;
+	unsigned int	   b = seed >> 32;
+	const unsigned int w = 8 * sizeof(unsigned int);
+	const unsigned int s = w / 2;
+	a *= 3284157443;
+
+	b ^= a << s | a >> (w - s);
+	b *= 1911520717;
+
+	a ^= b << s | b >> (w - s);
+	a *= 2048419325;
+
+	return a;
 }
- 
+
+agl::Vec<float, 2> randomGradient(agl::Vec<int, 2> pos, unsigned long long seed)
+{
+	const unsigned w = 8 * sizeof(unsigned);
+	const unsigned s = w / 2;
+	unsigned	   a = pos.x, b = pos.y;
+	a *= 3284157443;
+
+	b ^= a << s | a >> (w - s);
+	b *= 1911520717;
+
+	a ^= b << s | b >> (w - s);
+	a *= 2048419325;
+
+	a += genRand(seed);
+
+	float random = a * (3.14159265 / ~(~0u >> 1)); // in [0, 2*Pi]
+
+	agl::Vec<float, 2> v;
+	v.x = sin(random);
+	v.y = cos(random);
+
+	return v;
+}
+
 // Computes the dot product of the distance and gradient vectors.
-float dotGridGradient(agl::Vec<int, 2> chunkPos, agl::Vec<float, 2> pos) {
-    // Get gradient from integer coordinates
-	agl::Vec<float, 2> gradient = randomGradient(chunkPos);
- 
-    // Compute the distance vector
+float dotGridGradient(agl::Vec<int, 2> chunkPos, agl::Vec<float, 2> pos, unsigned long long seed)
+{
+	// Get gradient from integer coordinates
+	agl::Vec<float, 2> gradient = randomGradient(chunkPos, seed);
+
+	// Compute the distance vector
 	agl::Vec<float, 2> dist = pos - chunkPos;
 
-    // Compute the dot-product
-    return (dist.dot(gradient));
+	// Compute the dot-product
+	return (dist.dot(gradient));
 }
- 
+
 float interpolate(float a0, float a1, float w)
 {
-    return (a1 - a0) * (3.0 - w * 2.0) * w * w + a0;
+	return (a1 - a0) * (3.0 - w * 2.0) * w * w + a0;
 }
- 
- 
+
 // Sample Perlin noise at coordinates x, y
-float perlin(agl::Vec<float, 2> pos) {
-   pos.x/=50;
-   pos.y/=50;
+float perlin(agl::Vec<float, 2> pos, unsigned long long seed)
+{
+	// Determine grid cell corner coordinates
+	agl::Vec<int, 2> chunk00 = pos;
 
-    // Determine grid cell corner coordinates
-   agl::Vec<int, 2> chunk00 = pos; 
- 
-    // Compute Interpolation weights
-    agl::Vec<float, 2> s = pos - chunk00;
+	// Compute Interpolation weights
+	agl::Vec<float, 2> s = pos - chunk00;
 
-    // Compute and interpolate top two corners
-    float n0 = dotGridGradient({chunk00.x, chunk00.y}, pos);
-    float n1 = dotGridGradient({chunk00.x+1, chunk00.y}, pos);
-    float ix0 = interpolate(n0, n1, s.x);
- 
-    // Compute and interpolate bottom two corners
-    n0 = dotGridGradient({chunk00.x, chunk00.y+1}, pos);
-    n1 = dotGridGradient({chunk00.x+1, chunk00.y+1}, pos);
-    float ix1 = interpolate(n0, n1, s.x);
- 
-    // Final step: interpolate between the two previously interpolated values, now in y
-    float value = interpolate(ix0, ix1, s.y);
-    
-    return value;
+	// Compute and interpolate top two corners
+	float n0  = dotGridGradient({chunk00.x, chunk00.y}, pos, seed);
+	float n1  = dotGridGradient({chunk00.x + 1, chunk00.y}, pos, seed);
+	float ix0 = interpolate(n0, n1, s.x);
+
+	// Compute and interpolate bottom two corners
+	n0		  = dotGridGradient({chunk00.x, chunk00.y + 1}, pos, seed);
+	n1		  = dotGridGradient({chunk00.x + 1, chunk00.y + 1}, pos, seed);
+	float ix1 = interpolate(n0, n1, s.x);
+
+	// Final step: interpolate between the two previously interpolated values, now
+	// in y
+	float value = interpolate(ix0, ix1, s.y);
+
+	return value;
 }
+
+float octavePerlin(agl::Vec<float, 2> pos, int octaves)
+{
+	float height = 0;
+
+	float div = 0;
+
+	for (int i = 1; i <= octaves; i++)
+	{
+		height += perlin(pos / i, i) / i;
+		// div += 1. / i;
+	}
+
+	return height;
+}
+
 void World::generateRandom()
 {
 	for (int x1 = 0; x1 < 32; x1++)
@@ -96,13 +132,15 @@ void World::generateRandom()
 			{
 				for (int z = 0; z < 16; z++)
 				{
-					int height = perlin({x1*16 + x, y1*16 + z}) * 30 + 100;
+					agl::Vec<float, 2> noisePos = {(x1 * 16) + x, (y1 * 16) + z};
 
-					for(int y = 0; y < height; y++)
+					int height = octavePerlin(noisePos / 50, 64) * 30 + 100;
+
+					for (int y = 0; y < height; y++)
 					{
 						cr.blocks[x][y][z].type = cobblestone;
 					}
-					for(int y = height; y < 385; y++)
+					for (int y = height; y < 385; y++)
 					{
 						cr.blocks[x][y][z].type = air;
 					}
