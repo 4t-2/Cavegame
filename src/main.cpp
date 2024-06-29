@@ -122,7 +122,7 @@ unsigned int AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int,
 class Player
 {
 	public:
-		agl::Vec<float, 3> pos = {4, 150, 4};
+		agl::Vec<float, 3> pos = {16 * 16, 150, 16 * 16};
 		agl::Vec<float, 3> rot = {0, PI / 2, 0};
 		agl::Vec<float, 3> vel = {0, 0, 0};
 
@@ -466,7 +466,9 @@ struct ChunkMesh
 				baked	 = true;
 				auto end = std::chrono::high_resolution_clock::now();
 				// std::cout << "transfer took "
-				// 		  << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << '\n';
+				// 		  <<
+				// std::chrono::duration_cast<std::chrono::milliseconds>(end -
+				// start).count() << '\n';
 			}
 
 			w.drawPrimative(mesh);
@@ -524,8 +526,8 @@ class WorldMesh
 		}
 };
 
-#define RENDERDIST 4
-#define DESTROYDIST 5
+#define RENDERDIST	20
+#define DESTROYDIST 25
 
 void buildThread(WorldMesh &wm, bool &closeThread)
 {
@@ -548,33 +550,62 @@ void buildThread(WorldMesh &wm, bool &closeThread)
 				}
 			}
 
-			for (int x = -4; x <= 4; x++)
-			{
-				for (int y = -4; y <= 4; y++)
+			auto spiral = [](int X, int Y, auto func) {
+				int x, y, dx, dy;
+				x = y = dx = 0;
+				dy		   = -1;
+				int t	   = std::max(X, Y);
+				int maxI   = t * t;
+				for (int i = 0; i < maxI; i++)
 				{
-					agl::Vec<int, 3> cursor = {x, 0, y};
-		
-					if(cursor.length() > RENDERDIST)
+					if ((-X / 2 <= x) && (x <= X / 2) && (-Y / 2 <= y) && (y <= Y / 2))
 					{
-						continue;
-					}
-
-					cursor += playerChunkPos;
-
-					for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
-					{
-						if (it->pos == cursor)
+						if (func(x, y))
 						{
-							goto skip;
+							return;
 						}
 					}
-
-					wm.toAdd.emplace_back(wm.world, wm.blockDefs, cursor);
-					changesMade = true;
-
-				skip:;
+					if ((x == y) || ((x < 0) && (x == -y)) || ((x > 0) && (x == 1 - y)))
+					{
+						t  = dx;
+						dx = -dy;
+						dy = t;
+					}
+					x += dx;
+					y += dy;
 				}
-			}
+			};
+
+			spiral(RENDERDIST * 2, RENDERDIST * 2, [&](int x, int y) {
+				agl::Vec<int, 3> cursor = {x, 0, y};
+
+				if (cursor.length() > RENDERDIST)
+				{
+					return 0;
+				}
+
+				cursor += playerChunkPos;
+
+				for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
+				{
+					if (it->pos == cursor)
+					{
+						goto skip;
+					}
+				}
+
+				wm.toAdd.emplace_back(wm.world, wm.blockDefs, cursor);
+				changesMade = true;
+				std::cout << "SENT: " << x << " " << y << '\n';
+
+				return 1;
+
+			skip:;
+
+				return 0;
+			});
+
+		createSkip:;
 
 			if (changesMade)
 			{
@@ -589,12 +620,6 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 {
 	auto			 start		 = std::chrono::high_resolution_clock::now();
 	agl::Vec<int, 3> chunkPosBig = chunkPos * 16;
-
-	if (world.loadedChunks.count(chunkPos) == 0)
-	{
-		std::cout << chunkPos << '\n';
-		return;
-	}
 
 	ChunkRaw &chunk = world.loadedChunks[chunkPos];
 
@@ -802,7 +827,9 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 	}
 	auto end = std::chrono::high_resolution_clock::now();
 
-	// std::cout << "build took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << '\n';
+	// std::cout << "build took " <<
+	// std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+	// << '\n';
 }
 
 int main()
@@ -984,7 +1011,7 @@ int main()
 
 	WorldMesh wm(world, blockDefs);
 
-	wm.mesh.emplace_back(wm.world, wm.blockDefs, agl::Vec<int, 3>{0, 0, 0});
+	wm.mesh.emplace_back(wm.world, wm.blockDefs, player.pos / 16);
 
 	bool closeThread = false;
 
@@ -1027,7 +1054,7 @@ int main()
 						agl::radianToDegree(player.rot.z)});
 
 			agl::Mat<float, 4> proj;
-			proj.perspective(PI / 2, (float)windowSize.x / windowSize.y, 0.1, 100);
+			proj.perspective(PI / 2, (float)windowSize.x / windowSize.y, 0.1, 10000);
 
 			window.updateMvp(proj * rot * tran);
 		}

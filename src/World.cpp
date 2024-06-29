@@ -1,4 +1,5 @@
 #include "../inc/World.hpp"
+#include <vector>
 
 agl::Vec<int, 3> conv(enkiMICoordinate p)
 {
@@ -106,23 +107,78 @@ float perlin(agl::Vec<float, 2> pos, unsigned long long seed)
 	return value;
 }
 
-float octavePerlin(agl::Vec<float, 2> pos, int octaves)
+float octavePerlin(agl::Vec<float, 2> pos, std::vector<float> amplitudes)
 {
 	float height = 0;
 
 	float div = 0;
 
-	for (int i = 1; i <= octaves; i++)
+	for (int i = 1; i <= amplitudes.size(); i++)
 	{
-		height += perlin(pos / i, i) / i;
+		height += (perlin(pos / i, i) / i);//* amplitudes[i - 1]) / i;
 		// div += 1. / i;
 	}
 
 	return height;
 }
 
+class LinGraph
+{
+	public:
+		std::map<float, float> points;
+
+		float getValue(float x)
+		{
+			std::pair<float, float> last = *points.begin();
+
+			if (last.first >= x)
+			{
+				return last.second;
+			}
+
+			for (auto pair : points)
+			{
+				if (pair.first >= x)
+				{
+					float xdiff = pair.first - last.first;
+
+					float ydiff = pair.second - last.second;
+
+					float actualdiff = x - last.first;
+
+					return last.first + ((actualdiff / xdiff) * ydiff);
+				}
+
+				last = pair;
+			}
+
+			return std::next(points.end(), -1)->second;
+		}
+};
+
 void World::generateRandom()
 {
+	// LinGraph lg;
+	// lg.points.emplace(std::pair<float, float>(0, 0));
+	// lg.points.emplace(std::pair<float, float>(1, 1));
+	// lg.points.emplace(std::pair<float, float>(2, 2));
+	// lg.points.emplace(std::pair<float, float>(3, 3));
+	// lg.points.emplace(std::pair<float, float>(4, 6));
+	//
+	// std::cout << "there are " << lg.points.size() << '\n';
+	//
+	// std::cout << lg.getValue(2) << '\n';
+	// std::cout << lg.getValue(0) << '\n';
+	// std::cout << lg.getValue(-10) << '\n';
+	// std::cout << lg.getValue(7) << '\n';
+	// std::cout << lg.getValue(3.9) << '\n';
+	//
+	// exit(1);
+
+	std::vector<float> continentalness = {1, 1, 2, 2, 2, 1, 1, 1, 1};
+
+	continentalness.resize(1);
+
 	for (int x1 = 0; x1 < 32; x1++)
 	{
 		for (int y1 = 0; y1 < 32; y1++)
@@ -134,7 +190,7 @@ void World::generateRandom()
 				{
 					agl::Vec<float, 2> noisePos = {(x1 * 16) + x, (y1 * 16) + z};
 
-					int height = octavePerlin(noisePos / 50, 64) * 30 + 100;
+					int height = octavePerlin(noisePos / 64, continentalness) * 50 + 60;
 
 					for (int y = 0; y < height; y++)
 					{
