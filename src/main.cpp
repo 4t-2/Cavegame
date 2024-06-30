@@ -596,7 +596,6 @@ void buildThread(WorldMesh &wm, bool &closeThread)
 
 				wm.toAdd.emplace_back(wm.world, wm.blockDefs, cursor);
 				changesMade = true;
-				std::cout << "SENT: " << x << " " << y << '\n';
 
 				return 1;
 

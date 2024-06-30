@@ -97,7 +97,7 @@ class World
 			chunkPos.y = pos.y / 385;
 			chunkPos.z = pos.z >> 4;
 
-			if (loadedChunks.count(chunkPos) == 0)
+			if (loadedChunks.count(chunkPos) == 0 || pos.y < 0)
 			{
 				return false;
 			}

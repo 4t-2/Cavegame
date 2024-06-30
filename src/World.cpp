@@ -115,11 +115,74 @@ float octavePerlin(agl::Vec<float, 2> pos, std::vector<float> amplitudes)
 
 	for (int i = 1; i <= amplitudes.size(); i++)
 	{
-		height += (perlin(pos / i, i) / i);//* amplitudes[i - 1]) / i;
-		// div += 1. / i;
+		height += (perlin(pos / i, i)); //* amplitudes[i - 1]) / i;
+		div += 1. / i;
+	}
+
+	height /= div;
+
+	if (height > .75)
+	{
+		std::cout << "big" << '\n';
+	}
+	if (height < -0.75)
+	{
+		std::cout << "small" << '\n';
 	}
 
 	return height;
+}
+
+float fract(float x)
+{
+	return x - std::floor(x);
+}
+
+float mix(float x, float y, float a)
+{
+	return x * (1 - a) + y * a;
+}
+
+float random(agl::Vec<float, 2> st)
+{
+	// std::cout << st << " MAKES " << fract(sin(st.dot(agl::Vec<float,
+	// 2>(12.9898, 78.233))) * 43758.5453123) << '\n';
+	return fract(sin(st.dot(agl::Vec<float, 2>(12.9898, 78.233))) * 43758.5453123);
+}
+
+float noise(agl::Vec<float, 2> st)
+{
+	agl::Vec<float, 2> i = {floor(st.x), floor(st.y)};
+	agl::Vec<float, 2> f = {fract(st.x), fract(st.y)};
+
+	// Four corners in 2D of a tile
+	float a = random(i);
+	float b = random(i + agl::Vec<float, 2>(1.0, 0.0));
+	float c = random(i + agl::Vec<float, 2>(0.0, 1.0));
+	float d = random(i + agl::Vec<float, 2>(1.0, 1.0));
+
+	auto pre = (agl::Vec<float, 2>(3.0, 3.0) - (f * 2.0));
+
+	agl::Vec<float, 2> u = {f.x * f.x * pre.x, f.y * f.y * pre.y};
+
+	return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+}
+
+float fbm(agl::Vec<float, 2> st, std::vector<float> amplitudes)
+{
+	// Initial values
+	float value		= 0.0;
+	float amplitude = .5;
+	float frequency = 0.;
+	//
+	// Loop of octaves
+	for (int i = 0; i < amplitudes.size(); i++)
+	{
+		value += amplitude * amplitudes[i] * noise(st);
+		st *= 2.;
+		amplitude *= .5;
+	}
+	return value;
 }
 
 class LinGraph
@@ -177,7 +240,7 @@ void World::generateRandom()
 
 	std::vector<float> continentalness = {1, 1, 2, 2, 2, 1, 1, 1, 1};
 
-	continentalness.resize(1);
+	continentalness.resize(64);
 
 	for (int x1 = 0; x1 < 32; x1++)
 	{
@@ -190,8 +253,9 @@ void World::generateRandom()
 				{
 					agl::Vec<float, 2> noisePos = {(x1 * 16) + x, (y1 * 16) + z};
 
-					int height = octavePerlin(noisePos / 64, continentalness) * 50 + 60;
+					int height = ((fbm(noisePos / 64, continentalness) - .5) * 2) * 50 + 60;
 
+					height = std::max(std::min(height, 384), 0);
 					for (int y = 0; y < height; y++)
 					{
 						cr.blocks[x][y][z].type = cobblestone;
