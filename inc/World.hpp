@@ -109,7 +109,7 @@ class World
 
 		void loadFromFile(std::string dir, std::map<std::string, int> &strToId);
 
-		void generateRandom();
+		void generateRandom(std::map<std::string, int> &strToId);
 
 		unsigned int &get(agl::Vec<int, 3> pos)
 		{

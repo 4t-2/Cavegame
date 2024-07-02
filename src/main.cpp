@@ -953,7 +953,7 @@ int main()
 
 	World world;
 	world.setBasics(blockDefs);
-	world.generateRandom();
+	world.generateRandom(blockNameToDef);
 
 	// {
 	// 	unsigned int cobblestone = 0;

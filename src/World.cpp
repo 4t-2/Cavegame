@@ -1,4 +1,5 @@
 #include "../inc/World.hpp"
+#include <fstream>
 #include <vector>
 
 agl::Vec<int, 3> conv(enkiMICoordinate p)
@@ -185,7 +186,7 @@ float fbm(agl::Vec<float, 2> st, std::vector<float> amplitudes)
 	return value;
 }
 
-class LinGraph
+class LineGraph
 {
 	public:
 		std::map<float, float> points;
@@ -219,7 +220,41 @@ class LinGraph
 		}
 };
 
-void World::generateRandom()
+float getSplineVal(Json::Value splineRoot, float continentalness, float erosion, float ridges_folded)
+{
+	LineGraph lg;
+
+	for (auto &e : splineRoot["points"])
+	{
+		if (e["value"].isNumeric())
+		{
+			lg.points.emplace(std::pair(e["location"].asFloat(), e["value"].asFloat()));
+		}
+		else
+		{
+			float val = getSplineVal(e["value"], continentalness, erosion, ridges_folded);
+			lg.points.emplace(std::pair(e["location"].asFloat(), val));
+		}
+	}
+
+	if (splineRoot["coordinate"].asString() == "minecraft:overworld/continents")
+	{
+		return lg.getValue(continentalness);
+	}
+	if (splineRoot["coordinate"].asString() == "minecraft:overworld/erosion")
+	{
+		return lg.getValue(erosion);
+	}
+	if (splineRoot["coordinate"].asString() == "minecraft:overworld/ridges_folded")
+	{
+		return lg.getValue(ridges_folded);
+	}
+
+	std::cout << "FUCK " << splineRoot["coordinate"].asString() << '\n';
+	return -99999999.;
+}
+
+void World::generateRandom(std::map<std::string, int> &strToId)
 {
 	// LinGraph lg;
 	// lg.points.emplace(std::pair<float, float>(0, 0));
@@ -238,12 +273,28 @@ void World::generateRandom()
 	//
 	// exit(1);
 
-	std::vector<float> continentalness = {1, 1, 2, 2, 2, 1, 1, 1, 1};
+	auto concrete = strToId["blue_concrete"];
 
-	continentalness.resize(64);
+	std::vector<float> continentalnessAmp = {1, 1, 2, 2, 2, 1, 1, 1, 1};
+	std::vector<float> erosionAmp		  = {1, 1, 0, 1, 1, 1, 1, 1, 1};
+	std::vector<float> ridgeAmp			  = {1, 2, 1, 0, 0, 0, 1};
+
+	Json::Value offsetJson;
+	{
+
+		Json::Reader reader;
+		std::fstream fs("resources/java/data/minecraft/worldgen/density_function/"
+						"overworld/offset.json",
+						std::ios::in);
+		reader.parse(fs, offsetJson, false);
+		fs.close();
+	}
+
+	Json::Value splineRoot = offsetJson["argument"]["argument"]["argument2"]["argument1"]["argument2"]["spline"];
 
 	for (int x1 = 0; x1 < 32; x1++)
 	{
+		std::cout << x1 << '\n';
 		for (int y1 = 0; y1 < 32; y1++)
 		{
 			ChunkRaw &cr = loadedChunks[{x1, 0, y1}];
@@ -253,16 +304,36 @@ void World::generateRandom()
 				{
 					agl::Vec<float, 2> noisePos = {(x1 * 16) + x, (y1 * 16) + z};
 
-					int height = ((fbm(noisePos / 64, continentalness) - .5) * 2) * 50 + 60;
+					float con = ((fbm(noisePos / 64, continentalnessAmp) - .5) * 2);
+					float ero = ((fbm(noisePos / 64 + agl::Vec<float, 2>(1000000, 11111110), erosionAmp) - .5) * 2);
+					float rid = ((fbm(noisePos / 64 + agl::Vec<float, 2>(-1000000, -111110), ridgeAmp) - .5) * 2);
 
-					height = std::max(std::min(height, 384), 0);
-					for (int y = 0; y < height; y++)
+					float folded = (std::abs(std::abs(rid) - 0.666666) - 0.333333) * -3;
+
+					// LineGr
+
+					float offset = getSplineVal(splineRoot, con, ero, folded);
+
+					offset += -0.5037500262260437;
+
+					int height = (((offset + 1.5) / 3.) * 384.) - 64.;
+
+					height = std::max(0, std::min(384, height));
+
+					for (int y = 0; y < 385; y++)
 					{
-						cr.blocks[x][y][z].type = cobblestone;
-					}
-					for (int y = height; y < 385; y++)
-					{
-						cr.blocks[x][y][z].type = air;
+						if (y < height)
+						{
+							cr.blocks[x][y][z].type = cobblestone;
+						}
+						else if (y <= 62)
+						{
+							cr.blocks[x][y][z].type = concrete;
+						}
+						else
+						{
+							cr.blocks[x][y][z].type = air;
+						}
 					}
 				}
 			}
