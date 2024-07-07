@@ -223,6 +223,20 @@ class LineGraph
 float getSplineVal(Json::Value splineRoot, float continentalness, float erosion, float ridges_folded)
 {
 	LineGraph lg;
+	
+	float location;
+	if (splineRoot["coordinate"].asString() == "minecraft:overworld/continents")
+	{
+		location = continentalness;
+	}
+	if (splineRoot["coordinate"].asString() == "minecraft:overworld/erosion")
+	{
+		location = erosion;
+	}
+	if (splineRoot["coordinate"].asString() == "minecraft:overworld/ridges_folded")
+	{
+		location = ridges_folded;
+	}
 
 	for (auto &e : splineRoot["points"])
 	{
@@ -234,6 +248,11 @@ float getSplineVal(Json::Value splineRoot, float continentalness, float erosion,
 		{
 			float val = getSplineVal(e["value"], continentalness, erosion, ridges_folded);
 			lg.points.emplace(std::pair(e["location"].asFloat(), val));
+		}
+
+		if(e["location"].asFloat() > location)
+		{
+			break;
 		}
 	}
 
@@ -273,8 +292,6 @@ void World::generateRandom(std::map<std::string, int> &strToId)
 	//
 	// exit(1);
 
-	auto concrete = strToId["blue_concrete"];
-
 	std::vector<float> continentalnessAmp = {1, 1, 2, 2, 2, 1, 1, 1, 1};
 	std::vector<float> erosionAmp		  = {1, 1, 0, 1, 1, 1, 1, 1, 1};
 	std::vector<float> ridgeAmp			  = {1, 2, 1, 0, 0, 0, 1};
@@ -292,10 +309,10 @@ void World::generateRandom(std::map<std::string, int> &strToId)
 
 	Json::Value splineRoot = offsetJson["argument"]["argument"]["argument2"]["argument1"]["argument2"]["spline"];
 
-	for (int x1 = 0; x1 < 32; x1++)
+	for (int x1 = 0; x1 < 16; x1++)
 	{
 		std::cout << x1 << '\n';
-		for (int y1 = 0; y1 < 32; y1++)
+		for (int y1 = 0; y1 < 16; y1++)
 		{
 			ChunkRaw &cr = loadedChunks[{x1, 0, y1}];
 			for (int x = 0; x < 16; x++)
@@ -305,30 +322,36 @@ void World::generateRandom(std::map<std::string, int> &strToId)
 					agl::Vec<float, 2> noisePos = {(x1 * 16) + x, (y1 * 16) + z};
 
 					float con = ((fbm(noisePos / 64, continentalnessAmp) - .5) * 2);
-					float ero = ((fbm(noisePos / 64 + agl::Vec<float, 2>(1000000, 11111110), erosionAmp) - .5) * 2);
-					float rid = ((fbm(noisePos / 64 + agl::Vec<float, 2>(-1000000, -111110), ridgeAmp) - .5) * 2);
+					float ero = ((fbm((noisePos / 64) + agl::Vec<float, 2>(1000, 1000), erosionAmp) - .5) * 2);
+					float rid = ((fbm((noisePos / 64) + agl::Vec<float, 2>(-1000, -0100), ridgeAmp) - .5) * 2);
+
+					// std::cout << con << "\n";
 
 					float folded = (std::abs(std::abs(rid) - 0.666666) - 0.333333) * -3;
 
 					// LineGr
 
+					// float offset = rid;
+
+					// float offset = folded;
 					float offset = getSplineVal(splineRoot, con, ero, folded);
 
-					offset += -0.5037500262260437;
+					// offset += -0.5037500262260437;
+					// offset += .5;
 
-					int height = (((offset + 1.5) / 3.) * 384.) - 64.;
+					int height = (((offset + 1.5) / 3.) * 384.);
 
 					height = std::max(0, std::min(384, height));
 
 					for (int y = 0; y < 385; y++)
 					{
-						if (y < height)
+						if (y == 62 + 64)
+						{
+							cr.blocks[x][y][z].type = leaves;
+						}
+						else if (y < height)
 						{
 							cr.blocks[x][y][z].type = cobblestone;
-						}
-						else if (y <= 62)
-						{
-							cr.blocks[x][y][z].type = concrete;
 						}
 						else
 						{

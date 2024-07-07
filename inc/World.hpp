@@ -57,6 +57,7 @@ class World
 		unsigned int								   air;
 		unsigned int								   cobblestone;
 		unsigned int								   leaves;
+		unsigned int blue_wool;
 
 		World() : loadedChunks()
 		{
@@ -66,26 +67,21 @@ class World
 		{
 			for (int i = 0; i < blocks.size(); i++)
 			{
-				if (blocks[i].name == "air")
-				{
-					air = i;
-					break;
-				}
-			}
-			for (int i = 0; i < blocks.size(); i++)
-			{
 				if (blocks[i].name == "cobblestone")
 				{
 					cobblestone = i;
-					break;
 				}
-			}
-			for (int i = 0; i < blocks.size(); i++)
-			{
+				if (blocks[i].name == "air")
+				{
+					air = i;
+				}
 				if (blocks[i].name == "oak_leaves")
 				{
 					leaves = i;
-					break;
+				}
+				if (blocks[i].name == "blue_wool")
+				{
+					blue_wool = i;
 				}
 			}
 		}

@@ -122,7 +122,7 @@ unsigned int AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int,
 class Player
 {
 	public:
-		agl::Vec<float, 3> pos = {16 * 16, 150, 16 * 16};
+		agl::Vec<float, 3> pos = {16 * 16, 200, 16 * 16};
 		agl::Vec<float, 3> rot = {0, PI / 2, 0};
 		agl::Vec<float, 3> vel = {0, 0, 0};
 
@@ -157,7 +157,7 @@ void movePlayer(Player &player, agl::Vec<float, 3> acc)
 	player.vel.x *= BLCKFRC * 0.91;
 	player.vel.z *= BLCKFRC * 0.91;
 
-	acc *= WALKACC * 0.98;
+	acc *= 0.98 * 0.98 * 4;
 
 	float mod = 1;
 	if (player.sneaking)
@@ -170,17 +170,17 @@ void movePlayer(Player &player, agl::Vec<float, 3> acc)
 	}
 
 	acc *= mod;
-	if (acc.length() > std::max(mod, 1.f) / 3)
-	{
-		acc = acc.normalized() * mod / 3;
-	}
+	// if (acc.length() > std::max(mod, 1.f) / 3)
+	// {
+	// 	acc = acc.normalized() * mod / 3;
+	// }
 
 	player.vel += acc * 0.1;
 
 	player.pos += player.vel;
 
 	player.vel.y *= 0.98;
-	player.vel.y += GRAVACC;
+	// player.vel.y += GRAVACC;
 }
 
 struct Collision
@@ -586,6 +586,11 @@ void buildThread(WorldMesh &wm, bool &closeThread)
 
 				cursor += playerChunkPos;
 
+				if (wm.world.loadedChunks.count(cursor) == 0)
+				{
+					return 0;
+				}
+
 				for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
 				{
 					if (it->pos == cursor)
@@ -761,7 +766,7 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 					block.exposed.west = false;
 				}
 
-				if (!block.exposed.nonvis)
+				// if (!block.exposed.nonvis)
 				{
 					for (auto &e : blockDefs[block.type].elements)
 					{
@@ -1010,7 +1015,7 @@ int main()
 
 	WorldMesh wm(world, blockDefs);
 
-	wm.mesh.emplace_back(wm.world, wm.blockDefs, player.pos / 16);
+	// wm.mesh.emplace_back(wm.world, wm.blockDefs, player.pos / 16);
 
 	bool closeThread = false;
 
