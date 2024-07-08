@@ -57,7 +57,7 @@ class World
 		unsigned int								   air;
 		unsigned int								   cobblestone;
 		unsigned int								   leaves;
-		unsigned int blue_wool;
+		unsigned int								   blue_wool;
 
 		World() : loadedChunks()
 		{
@@ -106,6 +106,8 @@ class World
 		void loadFromFile(std::string dir, std::map<std::string, int> &strToId);
 
 		void generateRandom(std::map<std::string, int> &strToId);
+
+		void createChunk(agl::Vec<int, 3> pos);
 
 		unsigned int &get(agl::Vec<int, 3> pos)
 		{

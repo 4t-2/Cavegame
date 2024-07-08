@@ -436,6 +436,27 @@ class CommandBox : public agl::Drawable
 		}
 };
 
+class Timer
+{
+	private:
+		std::chrono::system_clock::time_point begin;
+		std::chrono::system_clock::time_point end;
+
+	public:
+		void start()
+		{
+			begin = std::chrono::high_resolution_clock::now();
+		}
+		void stop()
+		{
+			end = std::chrono::high_resolution_clock::now();
+		}
+		template <typename T = std::chrono::milliseconds> long long get()
+		{
+			return std::chrono::duration_cast<T>(end - begin).count();
+		}
+};
+
 struct ChunkMesh
 {
 		agl::Vec<int, 3> pos;
@@ -455,7 +476,6 @@ struct ChunkMesh
 		{
 			if (!baked)
 			{
-				auto start = std::chrono::high_resolution_clock::now();
 				mesh.genBuffers(1);
 				mesh.setMode(GL_LINES_ADJACENCY);
 				mesh.setVertexAmount(posList.size() / 4);
@@ -463,12 +483,7 @@ struct ChunkMesh
 
 				posList.clear();
 
-				baked	 = true;
-				auto end = std::chrono::high_resolution_clock::now();
-				// std::cout << "transfer took "
-				// 		  <<
-				// std::chrono::duration_cast<std::chrono::milliseconds>(end -
-				// start).count() << '\n';
+				baked = true;
 			}
 
 			w.drawPrimative(mesh);
@@ -505,10 +520,14 @@ class WorldMesh
 			playerChunkPos.y = 0;
 			mutPos.unlock();
 
+			Timer t;
+			t.start();
 			for (auto it = mesh.begin(); it != mesh.end(); it++)
 			{
 				it->draw(rw);
 			}
+			t.stop();
+			// std::cout << "took " << t.get<std::chrono::milliseconds>() << '\n';
 
 			if (hasDiffs)
 			{
@@ -526,8 +545,8 @@ class WorldMesh
 		}
 };
 
-#define RENDERDIST	20
-#define DESTROYDIST 25
+#define RENDERDIST	8
+#define DESTROYDIST 10
 
 void buildThread(WorldMesh &wm, bool &closeThread)
 {
@@ -588,7 +607,7 @@ void buildThread(WorldMesh &wm, bool &closeThread)
 
 				if (wm.world.loadedChunks.count(cursor) == 0)
 				{
-					return 0;
+					wm.world.createChunk(cursor);
 				}
 
 				for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
@@ -650,7 +669,8 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 
 				if (y + 1 >= 385)
 				{
-					block.exposed.up = false;
+					block.exposed.nonvis = false;
+					block.exposed.up	 = true;
 				}
 				else if (chunk.blocks[x][y + 1][z].type == world.air || chunk.blocks[x][y + 1][z].type == world.leaves)
 				{
@@ -669,7 +689,8 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 
 				if (y - 1 <= 0)
 				{
-					block.exposed.down = false;
+					block.exposed.nonvis = false;
+					block.exposed.down	 = true;
 				}
 				else if (chunk.blocks[x][y - 1][z].type == world.air || chunk.blocks[x][y - 1][z].type == world.leaves)
 				{
@@ -690,7 +711,8 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 
 				if (z + 1 >= 16)
 				{
-					block.exposed.north = false;
+					block.exposed.nonvis = false;
+					block.exposed.north	 = true;
 				}
 				else if (chunk.blocks[x][y][z + 1].type == world.air || chunk.blocks[x][y][z + 1].type == world.leaves)
 				{
@@ -709,7 +731,8 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 
 				if (z - 1 <= 0)
 				{
-					block.exposed.south = false;
+					block.exposed.nonvis = false;
+					block.exposed.south	 = true;
 				}
 				else if (chunk.blocks[x][y][z - 1].type == world.air || chunk.blocks[x][y][z - 1].type == world.leaves)
 				{
@@ -730,7 +753,8 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 
 				if (x + 1 >= 16)
 				{
-					block.exposed.east = false;
+					block.exposed.nonvis = false;
+					block.exposed.east	 = true;
 				}
 				else if (chunk.blocks[x + 1][y][z].type == world.air || chunk.blocks[x + 1][y][z].type == world.leaves)
 				{
@@ -749,7 +773,8 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 
 				if (x - 1 <= 0)
 				{
-					block.exposed.west = false;
+					block.exposed.nonvis = false;
+					block.exposed.west	 = true;
 				}
 				else if (chunk.blocks[x - 1][y][z].type == world.air || chunk.blocks[x - 1][y][z].type == world.leaves)
 				{
@@ -766,7 +791,7 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 					block.exposed.west = false;
 				}
 
-				// if (!block.exposed.nonvis)
+				if (!block.exposed.nonvis)
 				{
 					for (auto &e : blockDefs[block.type].elements)
 					{
@@ -958,7 +983,7 @@ int main()
 
 	World world;
 	world.setBasics(blockDefs);
-	world.generateRandom(blockNameToDef);
+	// world.generateRandom(blockNameToDef);
 
 	// {
 	// 	unsigned int cobblestone = 0;
@@ -1038,6 +1063,12 @@ int main()
 
 	while (!event.windowClose())
 	{
+		{
+			static Timer t;
+			t.stop();
+			std::cout << "FPS: " << 1000. / (t.get<std::chrono::milliseconds>()) << '\n';
+			t.start();
+		}
 		static int milliDiff = 0;
 		int		   start	 = getMillisecond();
 
