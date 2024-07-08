@@ -1066,7 +1066,7 @@ int main()
 		{
 			static Timer t;
 			t.stop();
-			std::cout << "FPS: " << 1000. / (t.get<std::chrono::milliseconds>()) << '\n';
+			// std::cout << "FPS: " << 1000. / (t.get<std::chrono::milliseconds>()) << '\n';
 			t.start();
 		}
 		static int milliDiff = 0;

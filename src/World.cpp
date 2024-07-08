@@ -287,13 +287,13 @@ void World::createChunk(agl::Vec<int, 3> chunkPos)
 			agl::Vec<float, 2> noisePos = {(chunkPos.x * 16) + x, (chunkPos.z * 16) + z};
 
 			float con = ((fbm(noisePos / 640, continentalnessAmp) - .5) * 2);
-			float ero = ((fbm((noisePos / 64) + agl::Vec<float, 2>(1000, 1000), erosionAmp) - .5) * 2);
+			float ero = ((fbm((noisePos / 400) + agl::Vec<float, 2>(1000, 1000), erosionAmp) - .5) * 2);
 			float rid = ((fbm((noisePos / 256) + agl::Vec<float, 2>(-1000, -0100), ridgeAmp) - .5) * 2);
 
 			// std::cout << con << "\n";
 
 			float folded = (std::abs(std::abs(rid) - 0.51) - 0.49) * -3;
-			folded = std::min(std::max(-0.1f, folded), 0.1f);
+			folded		 = std::min(std::max(-0.1f, folded), 0.1f);
 			folded += .1;
 			folded *= 5;
 
@@ -301,9 +301,13 @@ void World::createChunk(agl::Vec<int, 3> chunkPos)
 
 			// float offset = rid;
 
-			// float offset = con / 3;
-
-			float offset = (con / 3) * folded;
+			float offset = con / 3;
+			offset *= (std::max<float>(ero - .25, 0.f) * 20) + 1;
+			// if(ero > 0)
+			// {
+			// 	offset = 1;
+			// }
+			offset *= folded;
 
 			// offset += ero * std::max(0.f, con);
 
@@ -322,9 +326,32 @@ void World::createChunk(agl::Vec<int, 3> chunkPos)
 				{
 					cr.blocks[x][y][z].type = blue_wool;
 				}
-				else if (y < height)
+				else if (y <= height)
 				{
-					cr.blocks[x][y][z].type = cobblestone;
+					if((con / 3) < .105)
+					{
+						cr.blocks[x][y][z].type = sand;
+						continue;
+					}
+
+					int diff = height - y;
+					if (diff == 0)
+					{
+						if (y > 64 + 62 + 20)
+						{
+							cr.blocks[x][y][z].type = snow;
+						} else {
+							cr.blocks[x][y][z].type = grass;
+						}
+					}
+					else if (diff > 1)
+					{
+						cr.blocks[x][y][z].type = stone;
+					}
+					else
+					{
+						cr.blocks[x][y][z].type = dirt;
+					}
 				}
 				else
 				{

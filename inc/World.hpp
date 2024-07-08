@@ -58,6 +58,11 @@ class World
 		unsigned int								   cobblestone;
 		unsigned int								   leaves;
 		unsigned int								   blue_wool;
+		unsigned int								   grass;
+		unsigned int								   snow;
+		unsigned int								   dirt;
+		unsigned int								   stone;
+		unsigned int								   sand;
 
 		World() : loadedChunks()
 		{
@@ -82,6 +87,26 @@ class World
 				if (blocks[i].name == "blue_wool")
 				{
 					blue_wool = i;
+				}
+				if (blocks[i].name == "dirt")
+				{
+					dirt = i;
+				}
+				if (blocks[i].name == "grass_block")
+				{
+					grass = i;
+				}
+				if (blocks[i].name == "stone")
+				{
+					stone = i;
+				}
+				if (blocks[i].name == "grass_block_snow")
+				{
+					snow = i;
+				}
+				if (blocks[i].name == "sand")
+				{
+					sand = i;
 				}
 			}
 		}
