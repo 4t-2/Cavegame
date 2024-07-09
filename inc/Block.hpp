@@ -182,31 +182,6 @@ struct Element
 			COOLSHIT(east)
 			COOLSHIT(west)
 		}
-
-		static float AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int, 3> acc1, agl::Vec<int, 3> acc2,
-							  Grid3 &surround)
-		{
-			bool cornerTouch = surround.exists(pos + norm + acc1 + acc2);
-			bool lineTouch	 = surround.exists(pos + norm + acc1);
-			bool oppo		 = surround.exists(pos + norm + acc2);
-
-			if (lineTouch && oppo)
-			{
-				return 0.6;
-			}
-			else if ((lineTouch && cornerTouch) || (oppo && cornerTouch))
-			{
-				return 0.4;
-			}
-			else if (lineTouch || oppo || cornerTouch)
-			{
-				return 0.2;
-			}
-			else
-			{
-				return 0;
-			}
-		}
 };
 
 class Block

@@ -100,7 +100,7 @@ class World
 				{
 					stone = i;
 				}
-				if (blocks[i].name == "grass_block_snow")
+				if (blocks[i].name == "snow_block")
 				{
 					snow = i;
 				}

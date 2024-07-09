@@ -94,12 +94,22 @@ agl::Vec<float, 2> getCursorScenePosition(agl::Vec<float, 2> cursorWinPos, agl::
 // 	bool &lineTouch	  = vecToMap(blockMap, norm + acc1);
 // 	bool &oppo		  = vecToMap(blockMap, norm + acc2);
 
-unsigned int AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int, 3> acc1, agl::Vec<int, 3> acc2,
-					  World &world)
+struct BlockMap
 {
-	bool cornerTouch = world.getAtPos(pos + norm + acc1 + acc2);
-	bool lineTouch	 = world.getAtPos(pos + norm + acc1);
-	bool oppo		 = world.getAtPos(pos + norm + acc2);
+		bool data[3][3][3];
+
+		inline bool get(agl::Vec<int, 3> pos)
+		{
+			return data[pos.x + 1][pos.y + 1][pos.z + 1];
+		}
+};
+
+unsigned int AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int, 3> acc1, agl::Vec<int, 3> acc2,
+					  BlockMap &map)
+{
+	bool cornerTouch = !map.get(norm + acc1 + acc2);
+	bool lineTouch	 = !map.get(norm + acc1);
+	bool oppo		 = !map.get(norm + acc2);
 
 	if (lineTouch && oppo)
 	{
@@ -157,7 +167,7 @@ void movePlayer(Player &player, agl::Vec<float, 3> acc)
 	player.vel.x *= BLCKFRC * 0.91;
 	player.vel.z *= BLCKFRC * 0.91;
 
-	acc *= 0.98 * 0.98 * 4;
+	acc *= 0.98 * 0.98 * 2;
 
 	float mod = 1;
 	if (player.sneaking)
@@ -180,7 +190,7 @@ void movePlayer(Player &player, agl::Vec<float, 3> acc)
 	player.pos += player.vel;
 
 	player.vel.y *= 0.98;
-	// player.vel.y += GRAVACC;
+	player.vel.y += GRAVACC;
 }
 
 struct Collision
@@ -639,6 +649,11 @@ void buildThread(WorldMesh &wm, bool &closeThread)
 	std::cout << "build thread end" << '\n';
 }
 
+template <typename T> inline bool inRange(T t, T min, T max)
+{
+	return (t <= max) && (t >= min);
+}
+
 ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 3> chunkPos) : pos(chunkPos)
 {
 	auto			 start		 = std::chrono::high_resolution_clock::now();
@@ -648,7 +663,24 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 
 	posList.reserve(32768);
 
-	bool blockMap[3][3][3];
+	BlockMap blockMap;
+
+	if (!world.loadedChunks.count(chunkPos + agl::Vec<int, 3>{1, 0, 0}))
+	{
+		world.createChunk(chunkPos + agl::Vec<int, 3>{1, 0, 0});
+	}
+	if (!world.loadedChunks.count(chunkPos + agl::Vec<int, 3>{-1, 0, 0}))
+	{
+		world.createChunk(chunkPos + agl::Vec<int, 3>{-1, 0, 0});
+	}
+	if (!world.loadedChunks.count(chunkPos + agl::Vec<int, 3>{0, 0, 1}))
+	{
+		world.createChunk(chunkPos + agl::Vec<int, 3>{0, 0, 1});
+	}
+	if (!world.loadedChunks.count(chunkPos + agl::Vec<int, 3>{0, 0, -1}))
+	{
+		world.createChunk(chunkPos + agl::Vec<int, 3>{0, 0, -1});
+	}
 
 	for (int x = 0; x < 16; x++)
 	{
@@ -665,42 +697,66 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 					continue;
 				}
 
+#define MACRO(X, Y, Z)                                                                         \
+	{                                                                                          \
+		agl::Vec<int, 3> offset = agl::Vec<int, 3>{x + X - 1, y + Y - 1, z + Z - 1};           \
+		unsigned int	 id;                                                                   \
+		if (inRange(offset.x, 0, 15) && inRange(offset.y, 0, 385) && inRange(offset.z, 0, 15)) \
+		{                                                                                      \
+			id = chunk.blocks[offset.x][offset.y][offset.z].type;                              \
+		}                                                                                      \
+		else                                                                                   \
+		{                                                                                      \
+			id = world.get(chunkPosBig + offset);                                              \
+		}                                                                                      \
+		blockMap.data[X][Y][Z] = (id == world.air || id == world.leaves);                      \
+	}
+
+#define MACRO2(L)       \
+	{                   \
+		MACRO(0, L, 0); \
+		MACRO(1, L, 0); \
+		MACRO(2, L, 0); \
+		MACRO(0, L, 1); \
+		MACRO(1, L, 1); \
+		MACRO(2, L, 1); \
+		MACRO(0, L, 2); \
+		MACRO(1, L, 2); \
+		MACRO(2, L, 2); \
+	}
+
+				MACRO2(0);
+				MACRO2(1);
+				MACRO2(2);
+
+#undef MACRO2
+#undef MACRO
 				block.exposed.nonvis = true;
 
-				if (y + 1 >= 385)
-				{
-					block.exposed.nonvis = false;
-					block.exposed.up	 = true;
-				}
-				else if (chunk.blocks[x][y + 1][z].type == world.air || chunk.blocks[x][y + 1][z].type == world.leaves)
+				if (blockMap.data[1][2][1])
 				{
 					block.exposed.nonvis = false;
 					block.exposed.up	 = true;
 
-					block.aoc.up.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
-					block.aoc.up.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, world);
-					block.aoc.up.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
-					block.aoc.up.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, world);
+					block.aoc.up.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, blockMap);
+					block.aoc.up.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, blockMap);
+					block.aoc.up.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, blockMap);
+					block.aoc.up.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, blockMap);
 				}
 				else
 				{
 					block.exposed.up = false;
 				}
 
-				if (y - 1 <= 0)
-				{
-					block.exposed.nonvis = false;
-					block.exposed.down	 = true;
-				}
-				else if (chunk.blocks[x][y - 1][z].type == world.air || chunk.blocks[x][y - 1][z].type == world.leaves)
+				if (blockMap.data[1][0][1])
 				{
 					block.exposed.nonvis = false;
 					block.exposed.down	 = true;
 
-					block.aoc.down.x0y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, world);
-					block.aoc.down.x1y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, world);
-					block.aoc.down.x0y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, world);
-					block.aoc.down.x1y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, world);
+					block.aoc.down.x0y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, blockMap);
+					block.aoc.down.x1y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, blockMap);
+					block.aoc.down.x0y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, blockMap);
+					block.aoc.down.x1y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, blockMap);
 				}
 				else
 				{
@@ -709,40 +765,30 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 
 				// z
 
-				if (z + 1 >= 16)
-				{
-					block.exposed.nonvis = false;
-					block.exposed.north	 = true;
-				}
-				else if (chunk.blocks[x][y][z + 1].type == world.air || chunk.blocks[x][y][z + 1].type == world.leaves)
+				if (blockMap.data[1][1][2])
 				{
 					block.exposed.nonvis = false;
 					block.exposed.north	 = true;
 
-					block.aoc.north.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, world);
-					block.aoc.north.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, world);
-					block.aoc.north.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, world);
-					block.aoc.north.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, world);
+					block.aoc.north.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, blockMap);
+					block.aoc.north.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, blockMap);
+					block.aoc.north.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, blockMap);
+					block.aoc.north.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, blockMap);
 				}
 				else
 				{
 					block.exposed.north = false;
 				}
 
-				if (z - 1 <= 0)
-				{
-					block.exposed.nonvis = false;
-					block.exposed.south	 = true;
-				}
-				else if (chunk.blocks[x][y][z - 1].type == world.air || chunk.blocks[x][y][z - 1].type == world.leaves)
+				if (blockMap.data[1][1][0])
 				{
 					block.exposed.nonvis = false;
 					block.exposed.south	 = true;
 
-					block.aoc.south.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, world);
-					block.aoc.south.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, world);
-					block.aoc.south.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, world);
-					block.aoc.south.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, world);
+					block.aoc.south.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, blockMap);
+					block.aoc.south.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, blockMap);
+					block.aoc.south.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, blockMap);
+					block.aoc.south.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, blockMap);
 				}
 				else
 				{
@@ -751,40 +797,30 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 
 				// x
 
-				if (x + 1 >= 16)
-				{
-					block.exposed.nonvis = false;
-					block.exposed.east	 = true;
-				}
-				else if (chunk.blocks[x + 1][y][z].type == world.air || chunk.blocks[x + 1][y][z].type == world.leaves)
+				if (blockMap.data[2][1][1])
 				{
 					block.exposed.nonvis = false;
 					block.exposed.east	 = true;
 
-					block.aoc.east.x0y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
-					block.aoc.east.x1y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
-					block.aoc.east.x0y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
-					block.aoc.east.x1y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
+					block.aoc.east.x0y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, blockMap);
+					block.aoc.east.x1y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, blockMap);
+					block.aoc.east.x0y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, blockMap);
+					block.aoc.east.x1y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, blockMap);
 				}
 				else
 				{
 					block.exposed.east = false;
 				}
 
-				if (x - 1 <= 0)
-				{
-					block.exposed.nonvis = false;
-					block.exposed.west	 = true;
-				}
-				else if (chunk.blocks[x - 1][y][z].type == world.air || chunk.blocks[x - 1][y][z].type == world.leaves)
+				if (blockMap.data[0][1][1])
 				{
 					block.exposed.nonvis = false;
 					block.exposed.west	 = true;
 
-					block.aoc.west.x0y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, world);
-					block.aoc.west.x1y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, world);
-					block.aoc.west.x0y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, world);
-					block.aoc.west.x1y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, world);
+					block.aoc.west.x0y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, blockMap);
+					block.aoc.west.x1y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, blockMap);
+					block.aoc.west.x0y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, blockMap);
+					block.aoc.west.x1y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, blockMap);
 				}
 				else
 				{
@@ -1066,7 +1102,7 @@ int main()
 		{
 			static Timer t;
 			t.stop();
-			// std::cout << "FPS: " << 1000. / (t.get<std::chrono::milliseconds>()) << '\n';
+			std::cout << "FPS: " << 1000. / (t.get<std::chrono::milliseconds>()) << '\n';
 			t.start();
 		}
 		static int milliDiff = 0;
@@ -1325,6 +1361,7 @@ int main()
 
 		agl::Vec<int, 3> chunkPos = player.pos / 16;
 		chunkPos.y				  = 0;
+		// std::cout << chunkPos << '\n';
 	}
 
 	font.deleteFont();
