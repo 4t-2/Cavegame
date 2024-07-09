@@ -19,6 +19,8 @@
 #include "../inc/Block.hpp"
 #include "../inc/World.hpp"
 
+// b5d1ff
+
 #define GRAVACC (-.08 / 9)
 #define WALKACC (1 / 3.)
 #define BLCKFRC 0.6
@@ -903,7 +905,8 @@ int main()
 
 	agl::RenderWindow window;
 	window.setup({1920, 1080}, "CaveGame");
-	window.setClearColor({0x78, 0xA7, 0xFF});
+	// window.setClearColor({0x78, 0xA7, 0xFF});
+	window.setClearColor(agl::Color::Black);
 	window.setFPS(0);
 
 	agl::Vec<int, 2> windowSize;
@@ -924,6 +927,9 @@ int main()
 
 	ax::Program uiShader(ax::Shader("./shader/frag.glsl", GL_FRAGMENT_SHADER),
 						 ax::Shader("./shader/uivert.glsl", GL_VERTEX_SHADER));
+
+	ax::Program skyShader(ax::Shader("./shader/skyFrag.glsl", GL_FRAGMENT_SHADER),
+						  ax::Shader("./shader/skyVert.glsl", GL_VERTEX_SHADER));
 
 	Atlas atlas("./resources/java/assets/minecraft/textures/block/");
 
@@ -1102,7 +1108,8 @@ int main()
 		{
 			static Timer t;
 			t.stop();
-			std::cout << "FPS: " << 1000. / (t.get<std::chrono::milliseconds>()) << '\n';
+			// std::cout << "FPS: " << 1000. / (t.get<std::chrono::milliseconds>()) <<
+			// '\n';
 			t.start();
 		}
 		static int milliDiff = 0;
@@ -1113,6 +1120,29 @@ int main()
 		windowSize = window.getState().size;
 
 		window.clear();
+
+		{
+			agl::Mat4f proj;
+			agl::Mat4f trans;
+			proj.ortho(0, windowSize.x, windowSize.y, 0, 0.1, 100);
+			trans.lookAt({0, 0, 10}, {0, 0, 0}, {0, 1, 0});
+
+			skyShader.use();
+			window.getShaderUniforms(skyShader);
+			window.updateMvp(proj * trans);
+
+			auto id = skyShader.getUniformLocation("angle");
+			skyShader.setUniform(id, player.rot.x);
+
+			blankRect.setSize(windowSize);
+			blankRect.setPosition({0, 0, 0});
+
+			glDisable(GL_DEPTH_TEST);
+
+			window.drawShape(blankRect);
+
+			glEnable(GL_DEPTH_TEST);
+		}
 
 		worldShader.use();
 		window.getShaderUniforms(worldShader);
