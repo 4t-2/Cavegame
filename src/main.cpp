@@ -134,7 +134,7 @@ unsigned int AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int,
 class Player
 {
 	public:
-		agl::Vec<float, 3> pos = {16 * 16, 200, 16 * 16};
+		agl::Vec<float, 3> pos = {16 * 16, 150, 16 * 16};
 		agl::Vec<float, 3> rot = {0, PI / 2, 0};
 		agl::Vec<float, 3> vel = {0, 0, 0};
 
@@ -151,6 +151,7 @@ class Player
 
 void hideCursor(agl::RenderWindow &window)
 {
+	#ifdef __linux__
 	Cursor		invisibleCursor;
 	Pixmap		bitmapNoData;
 	XColor		black;
@@ -162,6 +163,11 @@ void hideCursor(agl::RenderWindow &window)
 	XDefineCursor(window.baseWindow.dpy, window.baseWindow.win, invisibleCursor);
 	XFreeCursor(window.baseWindow.dpy, invisibleCursor);
 	XFreePixmap(window.baseWindow.dpy, bitmapNoData);
+	#endif
+
+	#ifdef _WIN32
+	glfwSetInputMode(window.baseWindow.window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+	#endif
 }
 
 void movePlayer(Player &player, agl::Vec<float, 3> acc)
@@ -304,15 +310,10 @@ void updateSelected(Player &player, agl::Vec<int, 3> &selected, agl::Vec<int, 3>
 	selected = blockPos;
 	front	 = blockPos;
 
+	float dist = 0;
+
 	while (true)
 	{
-		if (blockPos.x >= world.size.x || blockPos.x < 0 || blockPos.y >= world.size.y || blockPos.y < 0 ||
-			blockPos.z >= world.size.z || blockPos.z < 0)
-		{
-			selected = front;
-			break;
-		}
-
 		if (world.getAtPos(blockPos))
 		{
 			selected = blockPos;
@@ -321,6 +322,8 @@ void updateSelected(Player &player, agl::Vec<int, 3> &selected, agl::Vec<int, 3>
 
 		blockPos += dir / 100;
 
+		dist += dir.length() / 100;
+
 		if (selected == agl::Vec<int, 3>(blockPos))
 		{
 		}
@@ -328,6 +331,13 @@ void updateSelected(Player &player, agl::Vec<int, 3> &selected, agl::Vec<int, 3>
 		{
 			front	 = selected;
 			selected = blockPos;
+		}
+
+		if (dist > 10)
+		{
+			selected = player.pos;
+			front	 = player.pos;
+			break;
 		}
 	}
 }
@@ -451,9 +461,14 @@ class CommandBox : public agl::Drawable
 class Timer
 {
 	private:
-		std::chrono::system_clock::time_point begin;
-		std::chrono::system_clock::time_point end;
-
+#ifdef _WIN32
+		std::chrono::time_point<std::chrono::steady_clock> begin;
+		std::chrono::time_point<std::chrono::steady_clock> end;
+#endif
+#ifdef __linux__
+		std::chrono::time_point<std::chrono::high_resolution_clock> begin;
+		std::chrono::time_point<std::chrono::high_resolution_clock> end;
+#endif
 	public:
 		void start()
 		{
@@ -473,7 +488,8 @@ struct ChunkMesh
 {
 		agl::Vec<int, 3> pos;
 		agl::GLPrimative mesh;
-		bool			 baked = false;
+		bool			 baked	= false;
+		bool			 update = false;
 
 		std::vector<float> posList;
 
@@ -562,15 +578,77 @@ class WorldMesh
 
 void buildThread(WorldMesh &wm, bool &closeThread)
 {
+	agl::Vec<int, 3> playerChunkPos;
+	bool			 changesMade;
+
+	auto buildChunk = [&](int x, int y) {
+		agl::Vec<int, 3> cursor = {x, 0, y};
+
+		if (cursor.length() > RENDERDIST)
+		{
+			return 0;
+		}
+
+		cursor += playerChunkPos;
+
+		if (wm.world.loadedChunks.count(cursor) == 0)
+		{
+			wm.world.createChunk(cursor);
+		}
+
+		for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
+		{
+			if (it->pos == cursor && !it->update)
+			{
+				goto skip;
+			}
+		}
+
+		wm.toAdd.emplace_back(wm.world, wm.blockDefs, cursor);
+		changesMade = true;
+
+		return 1;
+
+	skip:;
+
+		return 0;
+	};
+
+	auto spiral = [](int X, int Y, auto func) {
+		int x, y, dx, dy;
+		x = y = dx = 0;
+		dy		   = -1;
+		int t	   = std::max(X, Y);
+		int maxI   = t * t;
+		for (int i = 0; i < maxI; i++)
+		{
+			if ((-X / 2 <= x) && (x <= X / 2) && (-Y / 2 <= y) && (y <= Y / 2))
+			{
+				if (func(x, y))
+				{
+					return;
+				}
+			}
+			if ((x == y) || ((x < 0) && (x == -y)) || ((x > 0) && (x == 1 - y)))
+			{
+				t  = dx;
+				dx = -dy;
+				dy = t;
+			}
+			x += dx;
+			y += dy;
+		}
+	};
+
 	while (!closeThread)
 	{
 		if (!wm.hasDiffs)
 		{
 			wm.mutPos.lock();
-			agl::Vec<int, 3> playerChunkPos = wm.playerChunkPos;
+			playerChunkPos = wm.playerChunkPos;
 			wm.mutPos.unlock();
 
-			bool changesMade = false;
+			changesMade = false;
 
 			for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
 			{
@@ -579,66 +657,18 @@ void buildThread(WorldMesh &wm, bool &closeThread)
 					wm.toDestroy.push_back(it);
 					changesMade = true;
 				}
+
+				if (it->update)
+				{
+					wm.toDestroy.push_back(it);
+					changesMade = true;
+					buildChunk(it->pos.x - playerChunkPos.x, it->pos.z - playerChunkPos.z);
+
+					goto createSkip;
+				}
 			}
 
-			auto spiral = [](int X, int Y, auto func) {
-				int x, y, dx, dy;
-				x = y = dx = 0;
-				dy		   = -1;
-				int t	   = std::max(X, Y);
-				int maxI   = t * t;
-				for (int i = 0; i < maxI; i++)
-				{
-					if ((-X / 2 <= x) && (x <= X / 2) && (-Y / 2 <= y) && (y <= Y / 2))
-					{
-						if (func(x, y))
-						{
-							return;
-						}
-					}
-					if ((x == y) || ((x < 0) && (x == -y)) || ((x > 0) && (x == 1 - y)))
-					{
-						t  = dx;
-						dx = -dy;
-						dy = t;
-					}
-					x += dx;
-					y += dy;
-				}
-			};
-
-			spiral(RENDERDIST * 2, RENDERDIST * 2, [&](int x, int y) {
-				agl::Vec<int, 3> cursor = {x, 0, y};
-
-				if (cursor.length() > RENDERDIST)
-				{
-					return 0;
-				}
-
-				cursor += playerChunkPos;
-
-				if (wm.world.loadedChunks.count(cursor) == 0)
-				{
-					wm.world.createChunk(cursor);
-				}
-
-				for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
-				{
-					if (it->pos == cursor)
-					{
-						goto skip;
-					}
-				}
-
-				wm.toAdd.emplace_back(wm.world, wm.blockDefs, cursor);
-				changesMade = true;
-
-				return 1;
-
-			skip:;
-
-				return 0;
-			});
+			spiral(RENDERDIST * 2, RENDERDIST * 2, buildChunk);
 
 		createSkip:;
 
@@ -686,7 +716,7 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 
 	for (int x = 0; x < 16; x++)
 	{
-		for (int y = 0; y < 385; y++)
+		for (int y = MINHEIGHT; y < MAXHEIGHT; y++)
 		{
 			for (int z = 0; z < 16; z++)
 			{
@@ -903,6 +933,10 @@ int main()
 {
 	printf("Starting AGL\n");
 
+#ifdef _WIN32
+glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+#endif
+
 	agl::RenderWindow window;
 	window.setup({1920, 1080}, "CaveGame");
 	// window.setClearColor({0x78, 0xA7, 0xFF});
@@ -1108,8 +1142,8 @@ int main()
 		{
 			static Timer t;
 			t.stop();
-			// std::cout << "FPS: " << 1000. / (t.get<std::chrono::milliseconds>()) <<
-			// '\n';
+			std::cout << "FPS: " << 1000. / (t.get<std::chrono::milliseconds>()) <<
+			'\n';
 			t.start();
 		}
 		static int milliDiff = 0;
@@ -1227,6 +1261,8 @@ int main()
 			}
 
 			oldMousePos = mousePos;
+
+			#ifdef __linux__
 			Window win	= 0;
 			int	   i	= 0;
 			XGetInputFocus(window.baseWindow.dpy, &win, &i);
@@ -1240,6 +1276,23 @@ int main()
 					oldMousePos = windowSize / 2;
 				}
 			}
+			#endif
+
+			#ifdef _WIN32
+			{
+				int focused = glfwGetWindowAttrib(window.baseWindow.window, GLFW_FOCUSED);
+
+if (focused) {
+    if ((mousePos - (windowSize / 2)).length() > std::min(windowSize.x / 2, windowSize.y / 2))
+				{
+					glfwSetCursorPos(window.baseWindow.window, windowSize.x / 2,
+								 windowSize.y / 2);
+
+					oldMousePos = windowSize / 2;
+				}
+}
+			}
+			#endif
 
 			updateSelected(player, selected, front, world);
 
@@ -1280,94 +1333,31 @@ int main()
 
 			if (rclis.ls == ListenState::First && !(front == player.pos))
 			{
-				// BlockData &bd = world.blocks[front.x][front.y][front.z];
+				auto block	= world.getBlock(front);
+				block->type = cmdBox.pallete;
 
-				// bd.type = cmdBox.pallete;
-
-				// world.blocks[front.x - 1][front.y + 1][front.z - 1].needUpdate =
-				// true; world.blocks[front.x - 1][front.y + 1][front.z].needUpdate
-				// = true; world.blocks[front.x - 1][front.y + 1][front.z +
-				// 1].needUpdate = true; world.blocks[front.x + 0][front.y + 1][front.z
-				// - 1].needUpdate = true; world.blocks[front.x + 0][front.y +
-				// 1][front.z].needUpdate	   = true; world.blocks[front.x +
-				// 0][front.y + 1][front.z + 1].needUpdate = true; world.blocks[front.x
-				// + 1][front.y + 1][front.z - 1].needUpdate = true;
-				// world.blocks[front.x + 1][front.y + 1][front.z].needUpdate	   =
-				// true; world.blocks[front.x + 1][front.y + 1][front.z + 1].needUpdate
-				// = true;
-				//
-				// world.blocks[front.x - 1][front.y + 0][front.z - 1].needUpdate =
-				// true; world.blocks[front.x - 1][front.y + 0][front.z].needUpdate
-				// = true; world.blocks[front.x - 1][front.y + 0][front.z +
-				// 1].needUpdate = true; world.blocks[front.x + 0][front.y + 0][front.z
-				// - 1].needUpdate = true; world.blocks[front.x + 0][front.y +
-				// 0][front.z].needUpdate	   = true; world.blocks[front.x +
-				// 0][front.y + 0][front.z + 1].needUpdate = true; world.blocks[front.x
-				// + 1][front.y + 0][front.z - 1].needUpdate = true;
-				// world.blocks[front.x + 1][front.y + 0][front.z].needUpdate	   =
-				// true; world.blocks[front.x + 1][front.y + 0][front.z + 1].needUpdate
-				// = true;
-				//
-				// world.blocks[front.x - 1][front.y - 1][front.z - 1].needUpdate =
-				// true; world.blocks[front.x - 1][front.y - 1][front.z].needUpdate
-				// = true; world.blocks[front.x - 1][front.y - 1][front.z +
-				// 1].needUpdate = true; world.blocks[front.x + 0][front.y - 1][front.z
-				// - 1].needUpdate = true; world.blocks[front.x + 0][front.y -
-				// 1][front.z].needUpdate	   = true; world.blocks[front.x +
-				// 0][front.y - 1][front.z + 1].needUpdate = true; world.blocks[front.x
-				// + 1][front.y - 1][front.z - 1].needUpdate = true;
-				// world.blocks[front.x + 1][front.y - 1][front.z].needUpdate	   =
-				// true; world.blocks[front.x + 1][front.y - 1][front.z + 1].needUpdate
-				// = true;
-
-				// wm.set(world, blockDefs);
+				for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
+				{
+					if (it->pos == agl::Vec{front.x / 16, 0, front.z / 16})
+					{
+						it->update = true;
+						break;
+					}
+				}
 			}
 			if (lclis.ls == ListenState::First && focused)
 			{
-				// BlockData &bd = world.blocks[selected.x][selected.y][selected.z];
+				auto block	= world.getBlock(selected);
+				block->type = world.air;
 
-				// bd.type = world.air;
-
-				// world.blocks[selected.x - 1][selected.y + 1][selected.z -
-				// 1].needUpdate = true; world.blocks[selected.x - 1][selected.y +
-				// 1][selected.z].needUpdate		= true; world.blocks[selected.x
-				// - 1][selected.y + 1][selected.z + 1].needUpdate = true;
-				// world.blocks[selected.x + 0][selected.y + 1][selected.z -
-				// 1].needUpdate = true; world.blocks[selected.x + 0][selected.y +
-				// 1][selected.z].needUpdate		= true; world.blocks[selected.x
-				// + 0][selected.y + 1][selected.z + 1].needUpdate = true;
-				// world.blocks[selected.x + 1][selected.y + 1][selected.z -
-				// 1].needUpdate = true; world.blocks[selected.x + 1][selected.y +
-				// 1][selected.z].needUpdate		= true; world.blocks[selected.x
-				// + 1][selected.y + 1][selected.z + 1].needUpdate = true;
-				//
-				// world.blocks[selected.x - 1][selected.y + 0][selected.z -
-				// 1].needUpdate = true; world.blocks[selected.x - 1][selected.y +
-				// 0][selected.z].needUpdate		= true; world.blocks[selected.x
-				// - 1][selected.y + 0][selected.z + 1].needUpdate = true;
-				// world.blocks[selected.x + 0][selected.y + 0][selected.z -
-				// 1].needUpdate = true; world.blocks[selected.x + 0][selected.y +
-				// 0][selected.z].needUpdate		= true; world.blocks[selected.x
-				// + 0][selected.y + 0][selected.z + 1].needUpdate = true;
-				// world.blocks[selected.x + 1][selected.y + 0][selected.z -
-				// 1].needUpdate = true; world.blocks[selected.x + 1][selected.y +
-				// 0][selected.z].needUpdate		= true; world.blocks[selected.x
-				// + 1][selected.y + 0][selected.z + 1].needUpdate = true;
-				//
-				// world.blocks[selected.x - 1][selected.y - 1][selected.z -
-				// 1].needUpdate = true; world.blocks[selected.x - 1][selected.y -
-				// 1][selected.z].needUpdate		= true; world.blocks[selected.x
-				// - 1][selected.y - 1][selected.z + 1].needUpdate = true;
-				// world.blocks[selected.x + 0][selected.y - 1][selected.z -
-				// 1].needUpdate = true; world.blocks[selected.x + 0][selected.y -
-				// 1][selected.z].needUpdate		= true; world.blocks[selected.x
-				// + 0][selected.y - 1][selected.z + 1].needUpdate = true;
-				// world.blocks[selected.x + 1][selected.y - 1][selected.z -
-				// 1].needUpdate = true; world.blocks[selected.x + 1][selected.y -
-				// 1][selected.z].needUpdate		= true; world.blocks[selected.x
-				// + 1][selected.y - 1][selected.z + 1].needUpdate = true;
-
-				// wm.set(world, blockDefs);
+				for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
+				{
+					if (it->pos == agl::Vec{selected.x / 16, 0, selected.z / 16})
+					{
+						it->update = true;
+						break;
+					}
+				}
 			}
 
 			if (event.isKeyPressed(agl::Key::T))

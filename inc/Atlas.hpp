@@ -35,6 +35,19 @@ class Image
 		}
 };
 
+template<typename T>
+std::string FUCKWINDOWS(const T* input) {
+    static_assert(std::is_same<T, char>::value || std::is_same<T, wchar_t>::value,
+                  "This function only accepts char* or wchar_t*");
+
+    if constexpr (std::is_same<T, char>::value) {
+        return std::string(input);
+    } else if constexpr (std::is_same<T, wchar_t>::value) {
+        std::wstring wstr(input);
+        return std::string(wstr.begin(), wstr.end());
+    }
+}
+
 class Atlas
 {
 	public:
@@ -56,7 +69,7 @@ class Atlas
 				}
 
 				agl::Vec<int, 2> size;
-				unsigned char	*data = stbi_load(entry.path().c_str(), &size.x, &size.y, 0, 4);
+				unsigned char	*data = stbi_load(entry.path().string().c_str(), &size.x, &size.y, 0, 4);
 
 				if (size.x != 16 || size.y != 16)
 				{
@@ -64,7 +77,7 @@ class Atlas
 					continue;
 				}
 
-				std::string filename = std::filesystem::path(entry.path()).filename();
+				std::string filename = entry.path().filename().string();
 
 				blocks.push_back({data, filename.substr(0, filename.length() - 4)});
 			}

@@ -1,10 +1,11 @@
 #pragma once
 
 #include "../inc/Block.hpp"
-#include <MI/enkimi.h>
-#include <MI/miniz.h>
 #include <filesystem>
 #include <list>
+
+#define MAXHEIGHT 180
+#define MINHEIGHT 100
 
 // class ChunkGrid
 // {
@@ -41,10 +42,6 @@ struct ChunkRaw
 
 		BlockData &at(agl::Vec<int, 3> v)
 		{
-			if (v.y > 385)
-			{
-				std::cout << "awd" << '\n';
-			}
 			return blocks[v.x][v.y][v.z];
 		}
 };
@@ -128,8 +125,6 @@ class World
 					   .type != air;
 		}
 
-		void loadFromFile(std::string dir, std::map<std::string, int> &strToId);
-
 		void generateRandom(std::map<std::string, int> &strToId);
 
 		void createChunk(agl::Vec<int, 3> pos);
@@ -149,5 +144,21 @@ class World
 			return loadedChunks[chunkPos]
 				.at(pos - agl::Vec<int, 3>{chunkPos.x * 16, chunkPos.y * 385, chunkPos.z * 16})
 				.type;
+		}
+
+		BlockData *getBlock(agl::Vec<int, 3> pos)
+		{
+			agl::Vec<int, 3> chunkPos;
+			chunkPos.x = pos.x >> 4;
+			chunkPos.y = pos.y / 385;
+			chunkPos.z = pos.z >> 4;
+
+			if (loadedChunks.count(chunkPos) == 0 || pos.y < 0)
+			{
+				return nullptr;
+			}
+
+			return &loadedChunks[chunkPos].at(pos -
+											  agl::Vec<int, 3>{chunkPos.x * 16, chunkPos.y * 385, chunkPos.z * 16});
 		}
 };
