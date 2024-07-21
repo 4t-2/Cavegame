@@ -175,7 +175,7 @@ void movePlayer(Player &player, agl::Vec<float, 3> acc)
 	player.vel.x *= BLCKFRC * 0.91;
 	player.vel.z *= BLCKFRC * 0.91;
 
-	acc *= 0.98 * 0.98 * 2;
+	acc *= WALKACC * 0.98;
 
 	float mod = 1;
 	if (player.sneaking)
