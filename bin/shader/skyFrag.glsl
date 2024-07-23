@@ -2,13 +2,15 @@
 
 out vec4 color;
 
-uniform float angle;
+uniform float time;
+uniform float rotx;
+uniform float roty;
 
 in vec4 pos;
 
 void main()
 {
-	float y = (pos.y ) - angle + .3;
+	float y = (pos.y ) - rotx + .3;
 
 	y = min(y, 1);
 	y = max(y, 0);

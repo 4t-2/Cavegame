@@ -63,7 +63,7 @@ struct Face
 		agl::Vec<int, 2> uv		   = {0, 0};
 		agl::Vec<int, 2> size	   = {0, 0};
 		bool			 exists	   = false;
-		int tintImage = 0;
+		int				 tintImage = 0;
 		bool			 cull	   = false;
 };
 
@@ -104,7 +104,7 @@ struct Element
 		std::vector<unsigned int> elementDataArray;
 
 		Element(Json::Value &val, std::map<std::string, agl::Vec<int, 2>> &texHash, agl::Vec<int, 2> atlasSize,
-				Image &tintGrass, Image &tintFoliage, std::string &name)
+				Image &tintGrass, Image &tintFoliage, std::string &name, bool &solid)
 		{
 			agl::Vec<float, 3> from;
 			agl::Vec<float, 3> to;
@@ -116,6 +116,11 @@ struct Element
 			to.x = (float)val["to"][0].asInt() / 16;
 			to.y = (float)val["to"][1].asInt() / 16;
 			to.z = (float)val["to"][2].asInt() / 16;
+
+			if(from == agl::Vec<float, 3>{0, 0, 0} && to == agl::Vec<float, 3>{1, 1, 1})
+			{
+				solid = true;
+			}
 
 			offset = from;
 			size   = to - from;
@@ -138,11 +143,11 @@ struct Element
 		{                                                                                                        \
 			if (name.find("grass") != std::string::npos)                                                         \
 			{                                                                                                    \
-				dir.tintImage = 1;                                                                      \
+				dir.tintImage = 1;                                                                               \
 			}                                                                                                    \
 			else                                                                                                 \
 			{                                                                                                    \
-				dir.tintImage = 2;                                                                      \
+				dir.tintImage = 2;                                                                               \
 			}                                                                                                    \
 		}                                                                                                        \
 		if (v.isMember("cullface"))                                                                              \
@@ -189,6 +194,7 @@ class Block
 	public:
 		std::string name;
 
+		bool				 solid = false;
 		std::vector<Element> elements;
 
 		Block(Atlas &atlas, std::string name, std::map<std::string, Json::Value> &jsonPairs, Image &tintGrass,
@@ -263,7 +269,7 @@ class Block
 
 			for (auto &val : expanded["elements"])
 			{
-				elements.emplace_back(val, texHash, atlas.size, tintGrass, tintFoliage, name);
+				elements.emplace_back(val, texHash, atlas.size, tintGrass, tintFoliage, name, solid);
 			}
 		}
 

@@ -17,6 +17,7 @@
 
 #include "../inc/Atlas.hpp"
 #include "../inc/Block.hpp"
+#include "../inc/Serializer.hpp"
 #include "../inc/World.hpp"
 
 // b5d1ff
@@ -28,6 +29,21 @@
 #define BASESPEED WALKVELPERTICK
 
 #define FOREACH(x) for (int index = 0; index < x.size(); index++)
+
+class Config
+{
+	public:
+		bool showFps;
+		int	 fpsCap;
+};
+
+template <typename T> void recurse(T processor, Config &s, std::string name = "null")
+{
+	processor.process(name, s);
+
+	RECSER(s.showFps);
+	RECSER(s.fpsCap);
+}
 
 enum ListenState
 {
@@ -151,7 +167,7 @@ class Player
 
 void hideCursor(agl::RenderWindow &window)
 {
-	#ifdef __linux__
+#ifdef __linux__
 	Cursor		invisibleCursor;
 	Pixmap		bitmapNoData;
 	XColor		black;
@@ -163,11 +179,11 @@ void hideCursor(agl::RenderWindow &window)
 	XDefineCursor(window.baseWindow.dpy, window.baseWindow.win, invisibleCursor);
 	XFreeCursor(window.baseWindow.dpy, invisibleCursor);
 	XFreePixmap(window.baseWindow.dpy, bitmapNoData);
-	#endif
+#endif
 
-	#ifdef _WIN32
+#ifdef _WIN32
 	glfwSetInputMode(window.baseWindow.window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
-	#endif
+#endif
 }
 
 void movePlayer(Player &player, agl::Vec<float, 3> acc)
@@ -184,7 +200,7 @@ void movePlayer(Player &player, agl::Vec<float, 3> acc)
 	}
 	if (player.sprinting)
 	{
-		mod *= 1.3;
+		mod *= 2;
 	}
 
 	acc *= mod;
@@ -236,25 +252,22 @@ void correctPosition(Player &player, World &world)
 	{
 		for (int z = player.pos.z - 0.3; z < player.pos.z + 0.3; z++)
 		{
-			if (!world.getAtPos({x, player.pos.y + 1, z}) && !world.getAtPos({x, player.pos.y + 2, z}))
+			if (world.getAtPos({x, player.pos.y, z}) && player.vel.y < 0)
 			{
-				if (world.getAtPos({x, player.pos.y, z}) && player.vel.y < 0)
+				if (player.pos.y - (int)player.pos.y < .5)
 				{
-					if (player.pos.y - (int)player.pos.y < .5)
-					{
-						continue;
-					}
-					player.vel.y = 0;
-					player.pos.y = (int)player.pos.y + 1;
-
-					player.grounded = true;
+					continue;
 				}
+				player.vel.y = 0;
+				player.pos.y = (int)player.pos.y + 1;
 
-				if (world.getAtPos({x, player.pos.y + 1.8, z}) && player.vel.y > 0)
-				{
-					player.vel.y = 0;
-					player.pos.y = (int)(player.pos.y + 1.8) - 1.8;
-				}
+				player.grounded = true;
+			}
+
+			if (world.getAtPos({x, player.pos.y + 1.8, z}) && player.vel.y > 0)
+			{
+				player.vel.y = 0;
+				player.pos.y = (int)(player.pos.y + 1.8) - 1.8;
 			}
 		}
 	}
@@ -729,19 +742,19 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 					continue;
 				}
 
-#define MACRO(X, Y, Z)                                                                         \
-	{                                                                                          \
-		agl::Vec<int, 3> offset = agl::Vec<int, 3>{x + X - 1, y + Y - 1, z + Z - 1};           \
-		unsigned int	 id;                                                                   \
-		if (inRange(offset.x, 0, 15) && inRange(offset.y, 0, 385) && inRange(offset.z, 0, 15)) \
-		{                                                                                      \
-			id = chunk.blocks[offset.x][offset.y][offset.z].type;                              \
-		}                                                                                      \
-		else                                                                                   \
-		{                                                                                      \
-			id = world.get(chunkPosBig + offset);                                              \
-		}                                                                                      \
-		blockMap.data[X][Y][Z] = (id == world.air || id == world.leaves);                      \
+#define MACRO(X, Y, Z)                                                                            \
+	{                                                                                             \
+		agl::Vec<int, 3> offset = agl::Vec<int, 3>{x + X - 1, y + Y - 1, z + Z - 1};              \
+		unsigned int	 id;                                                                      \
+		if (inRange(offset.x, 0, 15) && inRange(offset.y, 0, 385) && inRange(offset.z, 0, 15))    \
+		{                                                                                         \
+			id = chunk.blocks[offset.x][offset.y][offset.z].type;                                 \
+		}                                                                                         \
+		else                                                                                      \
+		{                                                                                         \
+			id = world.get(chunkPosBig + offset);                                                 \
+		}                                                                                         \
+		blockMap.data[X][Y][Z] = (id == world.air || id == world.leaves || !blockDefs[id].solid); \
 	}
 
 #define MACRO2(L)       \
@@ -934,14 +947,13 @@ int main()
 	printf("Starting AGL\n");
 
 #ifdef _WIN32
-glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 #endif
 
 	agl::RenderWindow window;
 	window.setup({1920, 1080}, "CaveGame");
 	// window.setClearColor({0x78, 0xA7, 0xFF});
 	window.setClearColor(agl::Color::Black);
-	window.setFPS(0);
 
 	agl::Vec<int, 2> windowSize;
 
@@ -955,15 +967,19 @@ glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 	agl::Event event;
 	event.setWindow(window);
 
-	ax::Program worldShader(ax::Shader("./shader/baseVert.glsl", GL_VERTEX_SHADER),
-							ax::Shader("./shader/geom.glsl", GL_GEOMETRY_SHADER),
-							ax::Shader("./shader/frag.glsl", GL_FRAGMENT_SHADER));
+	std::cout << "Shader Compilation" << '\n';
+
+	ax::Program worldShader(ax::Shader("./shader/worldVert.glsl", GL_VERTEX_SHADER),
+							ax::Shader("./shader/worldGeom.glsl", GL_GEOMETRY_SHADER),
+							ax::Shader("./shader/worldFrag.glsl", GL_FRAGMENT_SHADER));
 
 	ax::Program uiShader(ax::Shader("./shader/frag.glsl", GL_FRAGMENT_SHADER),
 						 ax::Shader("./shader/uivert.glsl", GL_VERTEX_SHADER));
 
 	ax::Program skyShader(ax::Shader("./shader/skyFrag.glsl", GL_FRAGMENT_SHADER),
 						  ax::Shader("./shader/skyVert.glsl", GL_VERTEX_SHADER));
+
+	std::cout << "Loading Assets And Textures" << '\n';
 
 	Atlas atlas("./resources/java/assets/minecraft/textures/block/");
 
@@ -977,6 +993,27 @@ glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 	std::map<std::string, int> blockNameToDef;
 
 	agl::Texture elementDataTexture;
+
+	agl::Texture blank;
+	blank.setBlank();
+
+	agl::Font font;
+	font.setup("./font/font.ttf", 24);
+
+	std::cout << "Loading Config" << '\n';
+
+	Config config;
+
+	{
+		std::fstream fs("./config", std::ios::in);
+		recurse(Input(fs), config, "config");
+	}
+
+	window.setFPS(config.fpsCap);
+
+	recurse(Output(std::cout), config, "config");
+
+	std::cout << "Loading Block Data" << '\n';
 
 	blockDefs.reserve(atlas.blockMap.size() + 1);
 	{
@@ -1029,26 +1066,7 @@ glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 		elementDataTexture.useNearestFiltering();
 	}
 
-	agl::Texture foodTexture;
-	foodTexture.loadFromFile("./img/food.png");
-
-	agl::Texture creatureBodyTexture;
-	creatureBodyTexture.loadFromFile("./img/creatureBody.png");
-
-	agl::Texture creatureExtraTexture;
-	creatureExtraTexture.loadFromFile("./img/creatureExtra.png");
-
-	agl::Texture eggTexture;
-	eggTexture.loadFromFile("./img/egg.png");
-
-	agl::Texture meatTexture;
-	meatTexture.loadFromFile("./img/meat.png");
-
-	agl::Texture blank;
-	blank.setBlank();
-
-	agl::Font font;
-	font.setup("./font/font.ttf", 24);
+	std::cout << "Misc Work" << '\n';
 
 	agl::Text text;
 	text.setFont(&font);
@@ -1059,42 +1077,6 @@ glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 	World world;
 	world.setBasics(blockDefs);
-	// world.generateRandom(blockNameToDef);
-
-	// {
-	// 	unsigned int cobblestone = 0;
-	//
-	// 	for (int i = 0; i < blockDefs.size(); i++)
-	// 	{
-	// 		if (blockDefs[i].name == "cobblestone")
-	// 		{
-	// 			cobblestone = i;
-	// 		}
-	// 	}
-	//
-	// 	for (int x = 0; x < 20; x++)
-	// 	{
-	// 		for (int z = 0; z < 20; z++)
-	// 		{
-	// 			world.blocks[x][0][z] = cobblestone;
-	// 			world.blocks[x][1][z] = cobblestone;
-	// 			world.blocks[x][2][z] = cobblestone;
-	// 		}
-	// 	}
-	//
-	// 	for (int x = 0; x < 20; x++)
-	// 	{
-	// 		for (int y = 3; y < 20; y++)
-	// 		{
-	// 			for (int z = 0; z < 20; z++)
-	// 			{
-	// 				world.blocks[x][y][z] = world.air;
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	// return 0;
 
 	bool focused = true;
 
@@ -1112,11 +1094,7 @@ glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 	hideCursor(window);
 
-	std::cout << "entering" << '\n';
-
 	WorldMesh wm(world, blockDefs);
-
-	// wm.mesh.emplace_back(wm.world, wm.blockDefs, player.pos / 16);
 
 	bool closeThread = false;
 
@@ -1133,17 +1111,17 @@ glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 		glUniform1i(id, 0);
 	}
 
-	std::cout << "waiting for chunk" << '\n';
-
 	std::cout << "entering" << '\n';
+
+	float currentFrame = 0;
 
 	while (!event.windowClose())
 	{
+		if (config.showFps)
 		{
 			static Timer t;
 			t.stop();
-			std::cout << "FPS: " << 1000. / (t.get<std::chrono::milliseconds>()) <<
-			'\n';
+			std::cout << "FPS: " << 1000. / (t.get<std::chrono::milliseconds>()) << '\n';
 			t.start();
 		}
 		static int milliDiff = 0;
@@ -1165,8 +1143,12 @@ glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 			window.getShaderUniforms(skyShader);
 			window.updateMvp(proj * trans);
 
-			auto id = skyShader.getUniformLocation("angle");
+			int id = skyShader.getUniformLocation("time");
+			skyShader.setUniform(id, currentFrame);
+			id = skyShader.getUniformLocation("rotx");
 			skyShader.setUniform(id, player.rot.x);
+			id = skyShader.getUniformLocation("roty");
+			skyShader.setUniform(id, player.rot.y);
 
 			blankRect.setSize(windowSize);
 			blankRect.setPosition({0, 0, 0});
@@ -1192,6 +1174,13 @@ glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 			proj.perspective(PI / 2, (float)windowSize.x / windowSize.y, 0.1, 10000);
 
 			window.updateMvp(proj * rot * tran);
+
+			int id = worldShader.getUniformLocation("time");
+			worldShader.setUniform(id, currentFrame);
+			id = worldShader.getUniformLocation("rotx");
+			worldShader.setUniform(id, player.rot.x);
+			id = worldShader.getUniformLocation("roty");
+			worldShader.setUniform(id, player.rot.y);
 		}
 
 		glActiveTexture(GL_TEXTURE0 + 1);
@@ -1262,9 +1251,9 @@ glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 			oldMousePos = mousePos;
 
-			#ifdef __linux__
-			Window win	= 0;
-			int	   i	= 0;
+#ifdef __linux__
+			Window win = 0;
+			int	   i   = 0;
 			XGetInputFocus(window.baseWindow.dpy, &win, &i);
 			if (win == window.baseWindow.win)
 			{
@@ -1276,23 +1265,23 @@ glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 					oldMousePos = windowSize / 2;
 				}
 			}
-			#endif
+#endif
 
-			#ifdef _WIN32
+#ifdef _WIN32
 			{
 				int focused = glfwGetWindowAttrib(window.baseWindow.window, GLFW_FOCUSED);
 
-if (focused) {
-    if ((mousePos - (windowSize / 2)).length() > std::min(windowSize.x / 2, windowSize.y / 2))
+				if (focused)
 				{
-					glfwSetCursorPos(window.baseWindow.window, windowSize.x / 2,
-								 windowSize.y / 2);
+					if ((mousePos - (windowSize / 2)).length() > std::min(windowSize.x / 2, windowSize.y / 2))
+					{
+						glfwSetCursorPos(window.baseWindow.window, windowSize.x / 2, windowSize.y / 2);
 
-					oldMousePos = windowSize / 2;
+						oldMousePos = windowSize / 2;
+					}
 				}
-}
 			}
-			#endif
+#endif
 
 			updateSelected(player, selected, front, world);
 
@@ -1321,6 +1310,15 @@ if (focused) {
 			if (event.isKeyPressed(agl::Key::Space) && player.grounded)
 			{
 				player.vel.y = 0.48 / 3;
+			}
+
+			if (event.isKeyPressed(agl::Key::LeftShift))
+			{
+				player.sprinting = true;
+			}
+			else
+			{
+				player.sprinting = false;
 			}
 
 			player.grounded = false;
@@ -1382,14 +1380,12 @@ if (focused) {
 		agl::Vec<int, 3> chunkPos = player.pos / 16;
 		chunkPos.y				  = 0;
 		// std::cout << chunkPos << '\n';
+
+		currentFrame++;
 	}
 
 	font.deleteFont();
 
-	foodTexture.deleteTexture();
-	creatureBodyTexture.deleteTexture();
-	creatureExtraTexture.deleteTexture();
-	eggTexture.deleteTexture();
 	blank.deleteTexture();
 
 	tintTextureGrass.free();

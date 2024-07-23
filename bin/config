@@ -1,0 +1,3 @@
+config :
+	showFps = 0
+	fpsCap = 60
