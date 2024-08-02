@@ -1,7 +1,5 @@
 #include <AXIS/ax.hpp>
 
-#include <atomic>
-#include <bitset>
 #include <cctype>
 #include <chrono>
 #include <cmath>
@@ -11,12 +9,12 @@
 #include <ctime>
 #include <fstream>
 #include <math.h>
-#include <mutex>
 #include <string>
 #include <thread>
 
 #include "../inc/Atlas.hpp"
 #include "../inc/Block.hpp"
+#include "../inc/Mesh.hpp"
 #include "../inc/Serializer.hpp"
 #include "../inc/World.hpp"
 
@@ -29,6 +27,13 @@
 #define BASESPEED WALKVELPERTICK
 
 #define FOREACH(x) for (int index = 0; index < x.size(); index++)
+
+enum GameState
+{
+	RUNNING = 1,
+	CMD		= 0,
+	PAUSE	= 69
+};
 
 class Config
 {
@@ -112,41 +117,6 @@ agl::Vec<float, 2> getCursorScenePosition(agl::Vec<float, 2> cursorWinPos, agl::
 // 	bool &lineTouch	  = vecToMap(blockMap, norm + acc1);
 // 	bool &oppo		  = vecToMap(blockMap, norm + acc2);
 
-struct BlockMap
-{
-		bool data[3][3][3];
-
-		inline bool get(agl::Vec<int, 3> pos)
-		{
-			return data[pos.x + 1][pos.y + 1][pos.z + 1];
-		}
-};
-
-unsigned int AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int, 3> acc1, agl::Vec<int, 3> acc2,
-					  BlockMap &map)
-{
-	bool cornerTouch = !map.get(norm + acc1 + acc2);
-	bool lineTouch	 = !map.get(norm + acc1);
-	bool oppo		 = !map.get(norm + acc2);
-
-	if (lineTouch && oppo)
-	{
-		return 3;
-	}
-	else if ((lineTouch && cornerTouch) || (oppo && cornerTouch))
-	{
-		return 2;
-	}
-	else if (lineTouch || oppo || cornerTouch)
-	{
-		return 1;
-	}
-	else
-	{
-		return 0;
-	}
-}
-
 class Player
 {
 	public:
@@ -186,37 +156,6 @@ void hideCursor(agl::RenderWindow &window)
 #endif
 }
 
-void movePlayer(Player &player, agl::Vec<float, 3> acc)
-{
-	player.vel.x *= BLCKFRC * 0.91;
-	player.vel.z *= BLCKFRC * 0.91;
-
-	acc *= WALKACC * 0.98;
-
-	float mod = 1;
-	if (player.sneaking)
-	{
-		mod *= .3;
-	}
-	if (player.sprinting)
-	{
-		mod *= 2;
-	}
-
-	acc *= mod;
-	// if (acc.length() > std::max(mod, 1.f) / 3)
-	// {
-	// 	acc = acc.normalized() * mod / 3;
-	// }
-
-	player.vel += acc * 0.1;
-
-	player.pos += player.vel;
-
-	player.vel.y *= 0.98;
-	player.vel.y += GRAVACC;
-}
-
 struct Collision
 {
 		agl::Vec<int, 3> norm;
@@ -246,11 +185,55 @@ Collision boxCollide(Box b1, Box b2)
 	return {{0, 1, 0}, overlap.y};
 }
 
-void correctPosition(Player &player, World &world)
+void correctPositionXZ(Player &player, World &world)
 {
 	for (int x = player.pos.x - 0.3; x < player.pos.x + 0.3; x++)
 	{
+		for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+		{
+			if (world.getAtPos({x, y, (int)player.pos.z}))
+			{
+				agl::Vec<float, 2> center = {x + .5, y + .5, (int)player.pos.z + .5};
+				if (center.x > player.pos.x)
+				{
+					player.vel.x = 0;
+					player.pos.x = center.x - 0.3 - .5;
+				}
+				else if (center.x < player.pos.x)
+				{
+					player.vel.x = 0;
+					player.pos.x = center.x + 0.3 + .5;
+				}
+			}
+		}
+	}
+	for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+	{
 		for (int z = player.pos.z - 0.3; z < player.pos.z + 0.3; z++)
+		{
+			if (world.getAtPos({(int)player.pos.x, y, z}))
+			{
+				agl::Vec<float, 2> center = {(int)player.pos.x + .5, y + .5, z + .5};
+				if (center.z > player.pos.z)
+				{
+					player.vel.z = 0;
+					player.pos.z = center.z - 0.3 - .5;
+				}
+				else if (center.z < player.pos.z)
+				{
+					player.vel.z = 0;
+					player.pos.z = center.z + 0.3 + .5;
+				}
+			}
+		}
+	}
+}
+
+void correctPositionY(Player &player, World &world)
+{
+	for (int x = player.pos.x - 0.29; x < player.pos.x + 0.29; x++)
+	{
+		for (int z = player.pos.z - 0.29; z < player.pos.z + 0.29; z++)
 		{
 			if (world.getAtPos({x, player.pos.y, z}) && player.vel.y < 0)
 			{
@@ -271,46 +254,44 @@ void correctPosition(Player &player, World &world)
 			}
 		}
 	}
+}
 
-	for (int x = player.pos.x - 0.3; x < player.pos.x + 0.3; x++)
+void movePlayer(Player &player, agl::Vec<float, 3> acc, World &world)
+{
+	player.vel.x *= BLCKFRC * 0.91;
+	player.vel.z *= BLCKFRC * 0.91;
+
+	acc *= WALKACC * 0.98;
+
+	float mod = 1;
+	if (player.sneaking)
 	{
-		for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
-		{
-			for (int z = player.pos.z - 0.3; z < player.pos.z + 0.3; z++)
-			{
-				if (world.getAtPos({x, y, z}))
-				{
-					agl::Vec<float, 2> center = {x + .5, y + .5, z + .5};
-					if (abs(center.x - player.pos.x) < abs(center.z - player.pos.z))
-					{
-						if (center.z > player.pos.z)
-						{
-							player.vel.z = 0;
-							player.pos.z = center.z - 0.3 - .5;
-						}
-						else if (center.z < player.pos.z)
-						{
-							player.vel.z = 0;
-							player.pos.z = center.z + 0.3 + .5;
-						}
-					}
-					else
-					{
-						if (center.x > player.pos.x)
-						{
-							player.vel.x = 0;
-							player.pos.x = center.x - 0.3 - .5;
-						}
-						else if (center.x < player.pos.x)
-						{
-							player.vel.x = 0;
-							player.pos.x = center.x + 0.3 + .5;
-						}
-					}
-				}
-			}
-		}
+		mod *= .3;
 	}
+	if (player.sprinting)
+	{
+		mod *= 2;
+	}
+
+	acc *= mod;
+	// if (acc.length() > std::max(mod, 1.f) / 3)
+	// {
+	// 	acc = acc.normalized() * mod / 3;
+	// }
+
+	player.vel += acc * 0.1;
+
+	player.pos.x += player.vel.x;
+	player.pos.z += player.vel.z;
+
+	correctPositionXZ(player, world);
+
+	player.pos.y += player.vel.y;
+
+	correctPositionY(player, world);
+
+	player.vel.y *= 0.98;
+	player.vel.y += GRAVACC;
 }
 
 void updateSelected(Player &player, agl::Vec<int, 3> &selected, agl::Vec<int, 3> &front, World &world)
@@ -355,12 +336,117 @@ void updateSelected(Player &player, agl::Vec<int, 3> &selected, agl::Vec<int, 3>
 	}
 }
 
+class MCText
+{
+	public:
+		// 8x8 char, ASCII
+		agl::Texture	atlas;
+		agl::Rectangle &rect;
+
+		int kerning[256];
+
+		static float scale;
+
+		MCText(agl::Rectangle &rect) : rect(rect)
+		{
+			Image im;
+			im.load("resources/java/assets/minecraft/textures/font/ascii.png");
+
+			Json::Value	 root;
+			Json::Reader reader;
+
+			std::fstream fs("resources/java/assets/minecraft/font/include/default.json");
+
+			reader.parse(fs, root, false);
+
+			root = root["providers"][2]["chars"];
+
+			for (int c = 0; c < 255; c++)
+			{
+				int offsetX = c % 16;
+				int offsetY = c / 16;
+				offsetX *= 8;
+				offsetY *= 8;
+
+				int	 last;
+				bool none = true;
+
+				for (int x = 0; x < 8; x++)
+				{
+					for (int y = 0; y < 8; y++)
+					{
+						if (im.at({offsetX + x, offsetY + y}).a != 0)
+						{
+							last = x + 2;
+							none = false;
+							break;
+						}
+					}
+				}
+
+				if (none)
+				{
+					kerning[c] = 4;
+				}
+				else
+				{
+					kerning[c] = last;
+				}
+			}
+
+			im.free();
+
+			atlas.loadFromFile("resources/java/assets/minecraft/textures/font/ascii.png");
+			atlas.useNearestFiltering();
+		}
+
+		void draw(agl::RenderWindow &window, std::string text, agl::Vec<float, 2> pos, agl::Color color)
+		{
+			agl::Vec<float, 2> offset = pos;
+
+			rect.setSize(agl::Vec<float, 2>{8, 8} * scale);
+			rect.setOffset({0, 0});
+			rect.setTexture(&atlas);
+			rect.setRotation({0, 0, 0});
+			rect.setTextureScaling({1 / 16., 1 / 16.});
+			rect.setColor(color);
+
+			for (char c : text)
+			{
+				rect.setPosition(offset);
+				rect.setTextureTranslation({int(c % 16) / 16., int(c / 16) / 16.});
+				window.drawShape(rect);
+
+				if (c == '\n')
+				{
+					offset.x = pos.x;
+					offset.y += 8 * scale;
+				}
+				else
+				{
+					offset.x += kerning[c] * scale;
+				}
+			}
+		}
+
+		float getHeight()
+		{
+			return 8 * scale;
+		}
+
+		~MCText()
+		{
+			atlas.deleteTexture();
+		}
+};
+
+float MCText::scale = 1;
+
 class CommandBox : public agl::Drawable
 {
 	public:
-		agl::Shape	 &rect;
-		agl::Text	 &text;
-		agl::Texture &blank;
+		agl::Rectangle &rect;
+		agl::Texture   &blank;
 
 		std::string cmd = "";
 
@@ -370,13 +456,15 @@ class CommandBox : public agl::Drawable
 
 		bool commit = false;
 
-		bool &focused;
+		GameState &focused;
+
+		MCText &text;
 
 		int pallete = 1;
 
-		CommandBox(agl::Shape &rect, agl::Text &text, agl::Texture &blank, std::vector<Block> &blocks,
-				   agl::Vec<int, 2> &winSize, bool &focused)
-			: rect(rect), text(text), blank(blank), blocks(blocks), winSize(winSize), focused(focused)
+		CommandBox(agl::Rectangle &rect, MCText &text, agl::Texture &blank, std::vector<Block> &blocks,
+				   agl::Vec<int, 2> &winSize, GameState &focused)
+			: rect(rect), blank(blank), blocks(blocks), winSize(winSize), focused(focused), text(text)
 		{
 		}
 
@@ -432,11 +520,7 @@ class CommandBox : public agl::Drawable
 
 			win.drawShape(rect);
 
-			text.setText(" > " + cmd);
-			text.setPosition({0, 0, 0});
-			text.setColor(agl::Color::White);
-
-			win.drawText(text);
+			text.draw(win, " > " + cmd, {0, 0}, agl::Color::White);
 
 			int offset = text.getHeight() + 10;
 
@@ -446,13 +530,15 @@ class CommandBox : public agl::Drawable
 
 				if (b.name.substr(0, cmd.length()) == cmd)
 				{
+					rect.setTexture(&blank);
+					rect.setTextureTranslation({0, 0});
+					rect.setTextureScaling({0, 0});
+					rect.setColor(agl::Color::Black);
+
 					rect.setPosition({0, offset, 0});
-					text.setPosition({0, offset, 0});
-					text.setText(b.name);
-					text.setColor(agl::Color::Gray);
 
 					win.drawShape(rect);
-					win.drawText(text);
+					text.draw(win, b.name, {0, offset, 0}, agl::Color::Gray);
 
 					offset += text.getHeight() + 10;
 				}
@@ -461,7 +547,7 @@ class CommandBox : public agl::Drawable
 				{
 					commit	= false;
 					pallete = i;
-					focused = true;
+					focused = GameState::RUNNING;
 					cmd		= "";
 					break;
 				}
@@ -470,477 +556,6 @@ class CommandBox : public agl::Drawable
 			commit = false;
 		}
 };
-
-class Timer
-{
-	private:
-#ifdef _WIN32
-		std::chrono::time_point<std::chrono::steady_clock> begin;
-		std::chrono::time_point<std::chrono::steady_clock> end;
-#endif
-#ifdef __linux__
-		std::chrono::time_point<std::chrono::high_resolution_clock> begin;
-		std::chrono::time_point<std::chrono::high_resolution_clock> end;
-#endif
-	public:
-		void start()
-		{
-			begin = std::chrono::high_resolution_clock::now();
-		}
-		void stop()
-		{
-			end = std::chrono::high_resolution_clock::now();
-		}
-		template <typename T = std::chrono::milliseconds> long long get()
-		{
-			return std::chrono::duration_cast<T>(end - begin).count();
-		}
-};
-
-struct ChunkMesh
-{
-		agl::Vec<int, 3> pos;
-		agl::GLPrimative mesh;
-		bool			 baked	= false;
-		bool			 update = false;
-
-		std::vector<float> posList;
-
-		ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 3> chunkPos);
-
-		~ChunkMesh()
-		{
-			mesh.deleteData();
-		}
-
-		void draw(agl::RenderWindow &w)
-		{
-			if (!baked)
-			{
-				mesh.genBuffers(1);
-				mesh.setMode(GL_LINES_ADJACENCY);
-				mesh.setVertexAmount(posList.size() / 4);
-				mesh.setBufferData(0, &posList[0], 4);
-
-				posList.clear();
-
-				baked = true;
-			}
-
-			w.drawPrimative(mesh);
-		}
-};
-
-class WorldMesh
-{
-	public:
-		agl::GLPrimative glp;
-
-		std::list<ChunkMesh> mesh;
-
-		std::mutex		 mutPos;
-		agl::Vec<int, 3> playerChunkPos = {0, 0, 0};
-
-		// true - queue full, build thread halt, draw thread add
-		// false - queue empty, build thread makes, draw thread draws
-		std::atomic<bool>							hasDiffs = false;
-		std::vector<std::list<ChunkMesh>::iterator> toDestroy;
-		std::list<ChunkMesh>						toAdd;
-
-		std::vector<Block> &blockDefs;
-		World			   &world;
-
-		WorldMesh(World &world, std::vector<Block> &blockDefs) : blockDefs(blockDefs), world(world)
-		{
-		}
-
-		void draw(agl::RenderWindow &rw, Player &p)
-		{
-			mutPos.lock();
-			playerChunkPos	 = p.pos / 16;
-			playerChunkPos.y = 0;
-			mutPos.unlock();
-
-			Timer t;
-			t.start();
-			for (auto it = mesh.begin(); it != mesh.end(); it++)
-			{
-				it->draw(rw);
-			}
-			t.stop();
-			// std::cout << "took " << t.get<std::chrono::milliseconds>() << '\n';
-
-			if (hasDiffs)
-			{
-				for (auto &e : toDestroy)
-				{
-					mesh.erase(e);
-				}
-
-				toDestroy.clear();
-
-				mesh.splice(mesh.end(), toAdd);
-
-				hasDiffs = false;
-			}
-		}
-};
-
-#define RENDERDIST	8
-#define DESTROYDIST 10
-
-void buildThread(WorldMesh &wm, bool &closeThread)
-{
-	agl::Vec<int, 3> playerChunkPos;
-	bool			 changesMade;
-
-	auto buildChunk = [&](int x, int y) {
-		agl::Vec<int, 3> cursor = {x, 0, y};
-
-		if (cursor.length() > RENDERDIST)
-		{
-			return 0;
-		}
-
-		cursor += playerChunkPos;
-
-		if (wm.world.loadedChunks.count(cursor) == 0)
-		{
-			wm.world.createChunk(cursor);
-		}
-
-		for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
-		{
-			if (it->pos == cursor && !it->update)
-			{
-				goto skip;
-			}
-		}
-
-		wm.toAdd.emplace_back(wm.world, wm.blockDefs, cursor);
-		changesMade = true;
-
-		return 1;
-
-	skip:;
-
-		return 0;
-	};
-
-	auto spiral = [](int X, int Y, auto func) {
-		int x, y, dx, dy;
-		x = y = dx = 0;
-		dy		   = -1;
-		int t	   = std::max(X, Y);
-		int maxI   = t * t;
-		for (int i = 0; i < maxI; i++)
-		{
-			if ((-X / 2 <= x) && (x <= X / 2) && (-Y / 2 <= y) && (y <= Y / 2))
-			{
-				if (func(x, y))
-				{
-					return;
-				}
-			}
-			if ((x == y) || ((x < 0) && (x == -y)) || ((x > 0) && (x == 1 - y)))
-			{
-				t  = dx;
-				dx = -dy;
-				dy = t;
-			}
-			x += dx;
-			y += dy;
-		}
-	};
-
-	while (!closeThread)
-	{
-		if (!wm.hasDiffs)
-		{
-			wm.mutPos.lock();
-			playerChunkPos = wm.playerChunkPos;
-			wm.mutPos.unlock();
-
-			changesMade = false;
-
-			for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
-			{
-				if ((it->pos - playerChunkPos).length() > DESTROYDIST)
-				{
-					wm.toDestroy.push_back(it);
-					changesMade = true;
-				}
-
-				if (it->update)
-				{
-					wm.toDestroy.push_back(it);
-					changesMade = true;
-					buildChunk(it->pos.x - playerChunkPos.x, it->pos.z - playerChunkPos.z);
-
-					goto createSkip;
-				}
-			}
-
-			spiral(RENDERDIST * 2, RENDERDIST * 2, buildChunk);
-
-		createSkip:;
-
-			if (changesMade)
-			{
-				wm.hasDiffs = true;
-			}
-		}
-	}
-	std::cout << "build thread end" << '\n';
-}
-
-template <typename T> inline bool inRange(T t, T min, T max)
-{
-	return (t <= max) && (t >= min);
-}
-
-ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 3> chunkPos) : pos(chunkPos)
-{
-	auto			 start		 = std::chrono::high_resolution_clock::now();
-	agl::Vec<int, 3> chunkPosBig = chunkPos * 16;
-
-	ChunkRaw &chunk = world.loadedChunks[chunkPos];
-
-	posList.reserve(32768);
-
-	BlockMap blockMap;
-
-	if (!world.loadedChunks.count(chunkPos + agl::Vec<int, 3>{1, 0, 0}))
-	{
-		world.createChunk(chunkPos + agl::Vec<int, 3>{1, 0, 0});
-	}
-	if (!world.loadedChunks.count(chunkPos + agl::Vec<int, 3>{-1, 0, 0}))
-	{
-		world.createChunk(chunkPos + agl::Vec<int, 3>{-1, 0, 0});
-	}
-	if (!world.loadedChunks.count(chunkPos + agl::Vec<int, 3>{0, 0, 1}))
-	{
-		world.createChunk(chunkPos + agl::Vec<int, 3>{0, 0, 1});
-	}
-	if (!world.loadedChunks.count(chunkPos + agl::Vec<int, 3>{0, 0, -1}))
-	{
-		world.createChunk(chunkPos + agl::Vec<int, 3>{0, 0, -1});
-	}
-
-	for (int x = 0; x < 16; x++)
-	{
-		for (int y = MINHEIGHT; y < MAXHEIGHT; y++)
-		{
-			for (int z = 0; z < 16; z++)
-			{
-				agl::Vec<float, 3> pos = agl::Vec<int, 3>{x, y, z};
-
-				auto &block = chunk.at(pos);
-
-				if (block.type == world.air)
-				{
-					continue;
-				}
-
-#define MACRO(X, Y, Z)                                                                            \
-	{                                                                                             \
-		agl::Vec<int, 3> offset = agl::Vec<int, 3>{x + X - 1, y + Y - 1, z + Z - 1};              \
-		unsigned int	 id;                                                                      \
-		if (inRange(offset.x, 0, 15) && inRange(offset.y, 0, 385) && inRange(offset.z, 0, 15))    \
-		{                                                                                         \
-			id = chunk.blocks[offset.x][offset.y][offset.z].type;                                 \
-		}                                                                                         \
-		else                                                                                      \
-		{                                                                                         \
-			id = world.get(chunkPosBig + offset);                                                 \
-		}                                                                                         \
-		blockMap.data[X][Y][Z] = (id == world.air || id == world.leaves || !blockDefs[id].solid); \
-	}
-
-#define MACRO2(L)       \
-	{                   \
-		MACRO(0, L, 0); \
-		MACRO(1, L, 0); \
-		MACRO(2, L, 0); \
-		MACRO(0, L, 1); \
-		MACRO(1, L, 1); \
-		MACRO(2, L, 1); \
-		MACRO(0, L, 2); \
-		MACRO(1, L, 2); \
-		MACRO(2, L, 2); \
-	}
-
-				MACRO2(0);
-				MACRO2(1);
-				MACRO2(2);
-
-#undef MACRO2
-#undef MACRO
-				block.exposed.nonvis = true;
-
-				if (blockMap.data[1][2][1])
-				{
-					block.exposed.nonvis = false;
-					block.exposed.up	 = true;
-
-					block.aoc.up.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, blockMap);
-					block.aoc.up.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, blockMap);
-					block.aoc.up.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, blockMap);
-					block.aoc.up.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, blockMap);
-				}
-				else
-				{
-					block.exposed.up = false;
-				}
-
-				if (blockMap.data[1][0][1])
-				{
-					block.exposed.nonvis = false;
-					block.exposed.down	 = true;
-
-					block.aoc.down.x0y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, blockMap);
-					block.aoc.down.x1y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, blockMap);
-					block.aoc.down.x0y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, blockMap);
-					block.aoc.down.x1y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, blockMap);
-				}
-				else
-				{
-					block.exposed.down = false;
-				}
-
-				// z
-
-				if (blockMap.data[1][1][2])
-				{
-					block.exposed.nonvis = false;
-					block.exposed.north	 = true;
-
-					block.aoc.north.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, blockMap);
-					block.aoc.north.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, blockMap);
-					block.aoc.north.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, blockMap);
-					block.aoc.north.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, blockMap);
-				}
-				else
-				{
-					block.exposed.north = false;
-				}
-
-				if (blockMap.data[1][1][0])
-				{
-					block.exposed.nonvis = false;
-					block.exposed.south	 = true;
-
-					block.aoc.south.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, blockMap);
-					block.aoc.south.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, blockMap);
-					block.aoc.south.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, blockMap);
-					block.aoc.south.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, blockMap);
-				}
-				else
-				{
-					block.exposed.south = false;
-				}
-
-				// x
-
-				if (blockMap.data[2][1][1])
-				{
-					block.exposed.nonvis = false;
-					block.exposed.east	 = true;
-
-					block.aoc.east.x0y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, blockMap);
-					block.aoc.east.x1y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, blockMap);
-					block.aoc.east.x0y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, blockMap);
-					block.aoc.east.x1y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, blockMap);
-				}
-				else
-				{
-					block.exposed.east = false;
-				}
-
-				if (blockMap.data[0][1][1])
-				{
-					block.exposed.nonvis = false;
-					block.exposed.west	 = true;
-
-					block.aoc.west.x0y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, blockMap);
-					block.aoc.west.x1y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, blockMap);
-					block.aoc.west.x0y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, blockMap);
-					block.aoc.west.x1y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, blockMap);
-				}
-				else
-				{
-					block.exposed.west = false;
-				}
-
-				if (!block.exposed.nonvis)
-				{
-					for (auto &e : blockDefs[block.type].elements)
-					{
-						agl::Mat4f scale;
-						scale.scale(e.size);
-						agl::Mat4f offset;
-						offset.translate(e.offset + pos + (chunkPos * 16));
-						agl::Mat4f mat = offset * scale;
-
-						posList.push_back(mat.data[0][0]);
-						posList.push_back(mat.data[0][1]);
-						posList.push_back(mat.data[0][2]);
-						posList.push_back(mat.data[1][0]);
-
-						posList.push_back(mat.data[1][1]);
-						posList.push_back(mat.data[1][2]);
-						posList.push_back(mat.data[2][0]);
-						posList.push_back(mat.data[2][1]);
-
-						posList.push_back(mat.data[2][2]);
-						posList.push_back(mat.data[3][0]);
-						posList.push_back(mat.data[3][1]);
-						posList.push_back(mat.data[3][2]);
-
-#define COOLERSHIT(dir1, dir2)                    \
-	{                                             \
-		unsigned int buf = 0;                     \
-                                                  \
-		buf |= block.aoc.dir1.x0y0 << 0;          \
-		buf |= block.aoc.dir1.x0y1 << 2;          \
-		buf |= block.aoc.dir1.x1y0 << 4;          \
-		buf |= block.aoc.dir1.x1y1 << 6;          \
-		buf |= (long long)e.dir1.tintImage << 8;  \
-                                                  \
-		buf |= block.aoc.dir2.x0y0 << 16;         \
-		buf |= block.aoc.dir2.x0y1 << 18;         \
-		buf |= block.aoc.dir2.x1y0 << 20;         \
-		buf |= block.aoc.dir2.x1y1 << 22;         \
-		buf |= (long long)e.dir2.tintImage << 24; \
-                                                  \
-		posList.push_back(*(float *)(&buf));      \
-	}
-
-						COOLERSHIT(up, down);	  // 3 x
-						COOLERSHIT(south, north); // 3 y
-						COOLERSHIT(west, east);	  // 3 z
-
-						posList.push_back(*(float *)&e.id); // 3 w
-
-						// posList.push_back(0); // 4 x
-						// posList.push_back(0); // 4 y
-						// posList.push_back(0); // 4 z
-						// posList.push_back(0); // 4 w
-						// posList.push_back(0); // 5 x
-						// posList.push_back(0); // 5 y
-						// posList.push_back(0); // 5 z
-						// posList.push_back(0); // 5 w
-					}
-				}
-			}
-		}
-	}
-	auto end = std::chrono::high_resolution_clock::now();
-
-	// std::cout << "build took " <<
-	// std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-	// << '\n';
-}
 
 int main()
 {
@@ -1068,19 +683,18 @@ int main()
 
 	std::cout << "Misc Work" << '\n';
 
-	agl::Text text;
-	text.setFont(&font);
-	text.setScale(1);
-
 	agl::Rectangle blankRect;
 	blankRect.setTexture(&blank);
+
+	MCText text(blankRect);
+	text.scale = 2;
 
 	World world;
 	world.setBasics(blockDefs);
 
-	bool focused = true;
+	GameState gamestate = GameState::RUNNING;
 
-	CommandBox cmdBox(blankRect, text, blank, blockDefs, windowSize, focused);
+	CommandBox cmdBox(blankRect, text, blank, blockDefs, windowSize, gamestate);
 
 	cmdBox.pallete = world.cobblestone;
 
@@ -1133,65 +747,103 @@ int main()
 
 		window.clear();
 
+		if (gamestate == GameState::RUNNING || gamestate == GameState::PAUSE)
 		{
+			{
+				agl::Mat4f proj;
+				agl::Mat4f trans;
+				proj.ortho(0, windowSize.x, windowSize.y, 0, 0.1, 100);
+				trans.lookAt({0, 0, 10}, {0, 0, 0}, {0, 1, 0});
+
+				skyShader.use();
+				window.getShaderUniforms(skyShader);
+				window.updateMvp(proj * trans);
+
+				int id = skyShader.getUniformLocation("time");
+				skyShader.setUniform(id, currentFrame);
+				id = skyShader.getUniformLocation("rotx");
+				skyShader.setUniform(id, player.rot.x);
+				id = skyShader.getUniformLocation("roty");
+				skyShader.setUniform(id, player.rot.y);
+
+				blankRect.setSize(windowSize);
+				blankRect.setPosition({0, 0, 0});
+
+				glDisable(GL_DEPTH_TEST);
+
+				window.drawShape(blankRect);
+
+				glEnable(GL_DEPTH_TEST);
+			}
+
+			worldShader.use();
+			window.getShaderUniforms(worldShader);
+			{
+				agl::Mat<float, 4> tran;
+				tran.translate(player.pos * -1 - agl::Vec{0.f, 1.62f, 0.f});
+
+				agl::Mat<float, 4> rot;
+				rot.rotate({agl::radianToDegree(player.rot.x), agl::radianToDegree(player.rot.y),
+							agl::radianToDegree(player.rot.z)});
+
+				agl::Mat<float, 4> proj;
+				proj.perspective(PI / 2, (float)windowSize.x / windowSize.y, 0.1, 10000);
+
+				window.updateMvp(proj * rot * tran);
+
+				int id = worldShader.getUniformLocation("time");
+				worldShader.setUniform(id, currentFrame);
+				id = worldShader.getUniformLocation("rotx");
+				worldShader.setUniform(id, player.rot.x);
+				id = worldShader.getUniformLocation("roty");
+				worldShader.setUniform(id, player.rot.y);
+			}
+
+			glActiveTexture(GL_TEXTURE0 + 1);
+			agl::Texture::bind(elementDataTexture);
+			glActiveTexture(GL_TEXTURE0 + 0);
+			agl::Texture::bind(atlas.texture);
+
+			wm.mutPos.lock();
+			wm.playerChunkPos	= player.pos / 16;
+			wm.playerChunkPos.y = 0;
+			wm.mutPos.unlock();
+
+			wm.draw(window);
+
+			glDisable(GL_DEPTH_TEST);
+
 			agl::Mat4f proj;
 			agl::Mat4f trans;
 			proj.ortho(0, windowSize.x, windowSize.y, 0, 0.1, 100);
 			trans.lookAt({0, 0, 10}, {0, 0, 0}, {0, 1, 0});
 
-			skyShader.use();
-			window.getShaderUniforms(skyShader);
+			uiShader.use();
+			window.getShaderUniforms(uiShader);
 			window.updateMvp(proj * trans);
 
-			int id = skyShader.getUniformLocation("time");
-			skyShader.setUniform(id, currentFrame);
-			id = skyShader.getUniformLocation("rotx");
-			skyShader.setUniform(id, player.rot.x);
-			id = skyShader.getUniformLocation("roty");
-			skyShader.setUniform(id, player.rot.y);
+			if (!event.isKeyPressed(agl::Key::F1))
+			{
+				blankRect.setTextureScaling({1, 1, 1});
+				blankRect.setTextureTranslation({0, 0, 0});
+				blankRect.setTexture(&blank);
+				blankRect.setColor(agl::Color::Red);
+				blankRect.setRotation({0, 0, 0});
+				blankRect.setSize({3, 3});
+				blankRect.setPosition(windowSize / 2 - blankRect.getSize() / 2);
+				window.drawShape(blankRect);
+			}
 
-			blankRect.setSize(windowSize);
-			blankRect.setPosition({0, 0, 0});
-
-			glDisable(GL_DEPTH_TEST);
-
-			window.drawShape(blankRect);
-
-			glEnable(GL_DEPTH_TEST);
+			if (gamestate == GameState::PAUSE)
+			{
+				blankRect.setTexture(&blank);
+				blankRect.setColor({0, 0, 0, 127});
+				blankRect.setSize(windowSize);
+				blankRect.setPosition({0, 0, 0});
+				window.drawShape(blankRect);
+			}
 		}
-
-		worldShader.use();
-		window.getShaderUniforms(worldShader);
-		{
-			agl::Mat<float, 4> tran;
-			tran.translate(player.pos * -1 - agl::Vec{0.f, 1.8f, 0.f});
-
-			agl::Mat<float, 4> rot;
-			rot.rotate({agl::radianToDegree(player.rot.x), agl::radianToDegree(player.rot.y),
-						agl::radianToDegree(player.rot.z)});
-
-			agl::Mat<float, 4> proj;
-			proj.perspective(PI / 2, (float)windowSize.x / windowSize.y, 0.1, 10000);
-
-			window.updateMvp(proj * rot * tran);
-
-			int id = worldShader.getUniformLocation("time");
-			worldShader.setUniform(id, currentFrame);
-			id = worldShader.getUniformLocation("rotx");
-			worldShader.setUniform(id, player.rot.x);
-			id = worldShader.getUniformLocation("roty");
-			worldShader.setUniform(id, player.rot.y);
-		}
-
-		glActiveTexture(GL_TEXTURE0 + 1);
-		agl::Texture::bind(elementDataTexture);
-		glActiveTexture(GL_TEXTURE0 + 0);
-		agl::Texture::bind(atlas.texture);
-		wm.draw(window, player);
-
-		glDisable(GL_DEPTH_TEST);
-
-		if (!event.isKeyPressed(agl::Key::F1))
+		else if (gamestate == GameState::CMD)
 		{
 			agl::Mat4f proj;
 			agl::Mat4f trans;
@@ -1202,16 +854,7 @@ int main()
 			window.getShaderUniforms(uiShader);
 			window.updateMvp(proj * trans);
 
-			blankRect.setTextureScaling({1, 1, 1});
-			blankRect.setTextureTranslation({0, 0, 0});
-			blankRect.setTexture(&blank);
-			blankRect.setColor(agl::Color::Red);
-			blankRect.setRotation({0, 0, 0});
-			blankRect.setSize({3, 3});
-			blankRect.setPosition(windowSize / 2 - blankRect.getSize() / 2);
-			window.drawShape(blankRect);
-
-			if (!focused)
+			if (gamestate == GameState::CMD)
 			{
 				window.draw(cmdBox);
 			}
@@ -1224,7 +867,7 @@ int main()
 		static int frame = 0;
 		frame++;
 
-		if (focused)
+		if (gamestate == GameState::RUNNING)
 		{
 			static agl::Vec<int, 2> oldMousePos = event.getPointerWindowPosition();
 
@@ -1323,8 +966,7 @@ int main()
 
 			player.grounded = false;
 
-			movePlayer(player, acc);
-			correctPosition(player, world);
+			movePlayer(player, acc, world);
 
 			lclis.update(event.isPointerButtonPressed(agl::Button::Left));
 			rclis.update(event.isPointerButtonPressed(agl::Button::Right));
@@ -1343,7 +985,7 @@ int main()
 					}
 				}
 			}
-			if (lclis.ls == ListenState::First && focused)
+			if (lclis.ls == ListenState::First && gamestate)
 			{
 				auto block	= world.getBlock(selected);
 				block->type = world.air;
@@ -1360,19 +1002,22 @@ int main()
 
 			if (event.isKeyPressed(agl::Key::T))
 			{
-				focused = false;
+				gamestate = GameState::CMD;
 			}
 		}
-		else
+		else if (gamestate == GameState::CMD)
 		{
 			if (event.isKeyPressed(agl::Key::Escape))
 			{
-				focused = true;
+				gamestate = GameState::RUNNING;
 			}
 			else
 			{
 				cmdBox.update(event.keybuffer);
 			}
+		}
+		else if (gamestate == GameState::PAUSE)
+		{
 		}
 
 		window.setViewport(0, 0, windowSize.x, windowSize.y);

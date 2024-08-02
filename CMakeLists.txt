@@ -25,8 +25,16 @@ endif()
 add_executable(CaveGame ${SRC} ${AX})
 
 if(LINUX)
-	target_link_libraries(CaveGame -lX11 -lGL -lGLEW -lfreetype -ljsoncpp)
-	target_include_directories(CaveGame PUBLIC "/usr/include/freetype2")
+    find_package(PkgConfig REQUIRED)
+    pkg_search_module(jsoncpp REQUIRED jsoncpp)
+    find_package(glfw3 REQUIRED)
+    find_package(GLEW REQUIRED)
+    find_package(Freetype REQUIRED)
+	find_package(X11 REQUIRED)
+    # find_package(jsoncpp REQUIRED)
+
+    target_link_libraries(CaveGame X11 GL GLEW freetype jsoncpp)
+    target_include_directories(CaveGame PUBLIC ${FREETYPE_INCLUDE_DIRS})
 endif()
 
 if(WIN32)

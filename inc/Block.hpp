@@ -2,7 +2,6 @@
 
 #include "Atlas.hpp"
 #include <bitset>
-#include <json/json.h>
 
 struct Covered
 {
