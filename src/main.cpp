@@ -121,6 +121,9 @@ agl::Vec<float, 2> getCursorScenePosition(agl::Vec<float, 2> cursorWinPos, agl::
 class Player
 {
 	public:
+		int currentPallete = 0;
+		int pallete[9];
+
 		agl::Vec<float, 3> pos = {16 * 16, 150, 16 * 16};
 		agl::Vec<float, 3> rot = {0, PI / 2, 0};
 		agl::Vec<float, 3> vel = {0, 0, 0};
@@ -494,8 +497,6 @@ int main()
 
 	CommandBox cmdBox(blankRect, text, blank, blockDefs, windowSize);
 
-	cmdBox.pallete = world.cobblestone;
-
 	agl::Vec<int, 3> selected;
 	agl::Vec<int, 3> front;
 
@@ -503,6 +504,11 @@ int main()
 	Listener rclis;
 
 	Player player;
+
+	for (auto &e : player.pallete)
+	{
+		e = world.cobblestone;
+	}
 
 	hideCursor(window);
 
@@ -631,6 +637,36 @@ int main()
 				blankRect.setSize({3, 3});
 				blankRect.setPosition(windowSize / 2 - blankRect.getSize() / 2);
 				window.drawShape(blankRect);
+
+				blankRect.setColor(agl::Color{0, 0, 0, 127});
+				blankRect.setPosition({4, 4});
+				blankRect.setSize({200, 216});
+
+				window.drawShape(blankRect);
+
+				int i = 0;
+
+				for (auto &e : player.pallete)
+				{
+					std::string name = blockDefs[e].name;
+
+					if (i == player.currentPallete)
+					{
+						text.draw(window, std::to_string(i + 1) + ") " + name, {10, 10 + 0 + (i * 24)},
+								  agl::Color{0x3c, 0x3c, 0x00, 0xFF});
+						text.draw(window, std::to_string(i + 1) + ") " + name, {8, 8 + 0 + (i * 24)},
+								  agl::Color{0xfd, 0xfe, 0x00, 0xFF});
+					}
+					else
+					{
+						text.draw(window, std::to_string(i + 1) + ") " + name, {10, 10 + 0 + (i * 24)},
+								  agl::Color{0x34, 0x34, 0x34, 0xFF});
+						text.draw(window, std::to_string(i + 1) + ") " + name, {8, 8 + 0 + (i * 24)},
+								  agl::Color{0xDE, 0xDE, 0xDE, 0xFF});
+					}
+
+					i++;
+				}
 			}
 
 			if (gamestate == GameState::PAUSE)
@@ -655,7 +691,7 @@ int main()
 
 							if (b.name.substr(0, array[1].length()) == array[1])
 							{
-								cmdBox.pallete = blockNameToDef["minecraft:" + b.name];
+								player.pallete[player.currentPallete] = blockNameToDef["minecraft:" + b.name];
 								break;
 							}
 						}
@@ -776,6 +812,47 @@ int main()
 				player.sprinting = false;
 			}
 
+			if (event.isKeyPressed(agl::Key::Num1))
+			{
+				player.currentPallete = 0;
+			}
+			if (event.isKeyPressed(agl::Key::Num2))
+			{
+				player.currentPallete = 1;
+			}
+			if (event.isKeyPressed(agl::Key::Num3))
+			{
+				player.currentPallete = 2;
+			}
+			if (event.isKeyPressed(agl::Key::Num4))
+			{
+				player.currentPallete = 3;
+			}
+			if (event.isKeyPressed(agl::Key::Num5))
+			{
+				player.currentPallete = 4;
+			}
+			if (event.isKeyPressed(agl::Key::Num6))
+			{
+				player.currentPallete = 5;
+			}
+			if (event.isKeyPressed(agl::Key::Num7))
+			{
+				player.currentPallete = 6;
+			}
+			if (event.isKeyPressed(agl::Key::Num8))
+			{
+				player.currentPallete = 7;
+			}
+			if (event.isKeyPressed(agl::Key::Num8))
+			{
+				player.currentPallete = 8;
+			}
+			if (event.isKeyPressed(agl::Key::Num9))
+			{
+				player.currentPallete = 9;
+			}
+
 			player.grounded = false;
 
 			movePlayer(player, acc, world);
@@ -786,7 +863,7 @@ int main()
 			if (rclis.ls == ListenState::First && !(front == player.pos))
 			{
 				auto block	= world.getBlock(front);
-				block->type = cmdBox.pallete;
+				block->type = player.pallete[player.currentPallete];
 
 				for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
 				{

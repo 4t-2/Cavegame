@@ -158,8 +158,6 @@ class CommandBox : public agl::Drawable
 
 		MCText &text;
 
-		int pallete = 1;
-
 		CommandBox(agl::Rectangle &rect, MCText &text, agl::Texture &blank, std::vector<Block> &blocks,
 				   agl::Vec<int, 2> &winSize)
 			: rect(rect), blank(blank), blocks(blocks), winSize(winSize), text(text)
