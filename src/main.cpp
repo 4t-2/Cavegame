@@ -14,6 +14,7 @@
 
 #include "../inc/Atlas.hpp"
 #include "../inc/Block.hpp"
+#include "../inc/CommandBox.hpp"
 #include "../inc/Mesh.hpp"
 #include "../inc/Serializer.hpp"
 #include "../inc/World.hpp"
@@ -336,226 +337,23 @@ void updateSelected(Player &player, agl::Vec<int, 3> &selected, agl::Vec<int, 3>
 	}
 }
 
-class MCText
+void setFullscreen(Display *display, Window window)
 {
-	public:
-		// 8x8 char, ASCII
-		agl::Texture	atlas;
-		agl::Rectangle &rect;
+	return;
+	Atom wmState	= XInternAtom(display, "_NET_WM_STATE", False);
+	Atom fullscreen = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False);
 
-		int kerning[256];
+	XEvent xev				 = {0};
+	xev.type				 = ClientMessage;
+	xev.xclient.window		 = window;
+	xev.xclient.message_type = wmState;
+	xev.xclient.format		 = 32;
+	xev.xclient.data.l[0]	 = 1; // _NET_WM_STATE_ADD
+	xev.xclient.data.l[1]	 = fullscreen;
+	xev.xclient.data.l[2]	 = 0; // no second property to toggle
 
-		static float scale;
-
-		MCText(agl::Rectangle &rect) : rect(rect)
-		{
-			Image im;
-			im.load("resources/java/assets/minecraft/textures/font/ascii.png");
-
-			Json::Value	 root;
-			Json::Reader reader;
-
-			std::fstream fs("resources/java/assets/minecraft/font/include/default.json");
-
-			reader.parse(fs, root, false);
-
-			root = root["providers"][2]["chars"];
-
-			for (int c = 0; c < 255; c++)
-			{
-				int offsetX = c % 16;
-				int offsetY = c / 16;
-				offsetX *= 8;
-				offsetY *= 8;
-
-				int	 last;
-				bool none = true;
-
-				for (int x = 0; x < 8; x++)
-				{
-					for (int y = 0; y < 8; y++)
-					{
-						if (im.at({offsetX + x, offsetY + y}).a != 0)
-						{
-							last = x + 2;
-							none = false;
-							break;
-						}
-					}
-				}
-
-				if (none)
-				{
-					kerning[c] = 4;
-				}
-				else
-				{
-					kerning[c] = last;
-				}
-			}
-
-			im.free();
-
-			atlas.loadFromFile("resources/java/assets/minecraft/textures/font/ascii.png");
-			atlas.useNearestFiltering();
-		}
-
-		void draw(agl::RenderWindow &window, std::string text, agl::Vec<float, 2> pos, agl::Color color)
-		{
-			agl::Vec<float, 2> offset = pos;
-
-			rect.setSize(agl::Vec<float, 2>{8, 8} * scale);
-			rect.setOffset({0, 0});
-			rect.setTexture(&atlas);
-			rect.setRotation({0, 0, 0});
-			rect.setTextureScaling({1 / 16., 1 / 16.});
-			rect.setColor(color);
-
-			for (char c : text)
-			{
-				rect.setPosition(offset);
-				rect.setTextureTranslation({int(c % 16) / 16., int(c / 16) / 16.});
-				window.drawShape(rect);
-
-				if (c == '\n')
-				{
-					offset.x = pos.x;
-					offset.y += 8 * scale;
-				}
-				else
-				{
-					offset.x += kerning[c] * scale;
-				}
-			}
-		}
-
-		float getHeight()
-		{
-			return 8 * scale;
-		}
-
-		~MCText()
-		{
-			atlas.deleteTexture();
-		}
-};
-
-float MCText::scale = 1;
-
-class CommandBox : public agl::Drawable
-{
-	public:
-		agl::Rectangle &rect;
-		agl::Texture   &blank;
-
-		std::string cmd = "";
-
-		std::vector<Block> &blocks;
-
-		agl::Vec<int, 2> &winSize;
-
-		bool commit = false;
-
-		GameState &focused;
-
-		MCText &text;
-
-		int pallete = 1;
-
-		CommandBox(agl::Rectangle &rect, MCText &text, agl::Texture &blank, std::vector<Block> &blocks,
-				   agl::Vec<int, 2> &winSize, GameState &focused)
-			: rect(rect), blank(blank), blocks(blocks), winSize(winSize), focused(focused), text(text)
-		{
-		}
-
-		void update(std::string buffer)
-		{
-			cmd += buffer;
-
-			auto safeSub = [](std::string &str, int pos) -> std::string {
-				if (pos > str.length())
-				{
-					return "";
-				}
-				else
-				{
-					return str.substr(pos);
-				}
-			};
-			auto removeChar = [&](std::string &str, int i) { str = str.substr(0, i) + safeSub(str, i + 1); };
-
-			for (int i = 0; i < cmd.size(); i++)
-			{
-				if (cmd[i] == 8)
-				{
-					removeChar(cmd, i);
-					i--;
-					if (i >= 0)
-					{
-						removeChar(cmd, i);
-						i--;
-					}
-				}
-				else if (cmd[i] == '\r')
-				{
-					commit = true;
-					cmd	   = cmd.substr(0, i);
-					break;
-				}
-				else if (cmd[i] < 32 || cmd[i] == 127)
-				{
-					removeChar(cmd, i);
-					i--;
-				}
-			}
-		}
-
-		void drawFunction(agl::RenderWindow &win) override
-		{
-			rect.setTexture(&blank);
-			rect.setColor(agl::Color::Black);
-			rect.setPosition({0, 0, 0});
-			rect.setRotation({0, 0, 0});
-			rect.setSize({winSize.x, text.getHeight() + 10, 0});
-
-			win.drawShape(rect);
-
-			text.draw(win, " > " + cmd, {0, 0}, agl::Color::White);
-
-			int offset = text.getHeight() + 10;
-
-			for (unsigned int i = 0; i < blocks.size(); i++)
-			{
-				auto &b = blocks[i];
-
-				if (b.name.substr(0, cmd.length()) == cmd)
-				{
-					rect.setTexture(&blank);
-					rect.setTextureTranslation({0, 0});
-					rect.setTextureScaling({0, 0});
-					rect.setColor(agl::Color::Black);
-
-					rect.setPosition({0, offset, 0});
-
-					win.drawShape(rect);
-					text.draw(win, b.name, {0, offset, 0}, agl::Color::Gray);
-
-					offset += text.getHeight() + 10;
-				}
-
-				if (b.name.substr(0, cmd.size()) == cmd && commit)
-				{
-					commit	= false;
-					pallete = i;
-					focused = GameState::RUNNING;
-					cmd		= "";
-					break;
-				}
-			}
-
-			commit = false;
-		}
-};
+	XSendEvent(display, DefaultRootWindow(display), False, SubstructureNotifyMask, &xev);
+}
 
 int main()
 {
@@ -694,7 +492,7 @@ int main()
 
 	GameState gamestate = GameState::RUNNING;
 
-	CommandBox cmdBox(blankRect, text, blank, blockDefs, windowSize, gamestate);
+	CommandBox cmdBox(blankRect, text, blank, blockDefs, windowSize);
 
 	cmdBox.pallete = world.cobblestone;
 
@@ -729,6 +527,8 @@ int main()
 
 	float currentFrame = 0;
 
+	setFullscreen(window.baseWindow.dpy, window.baseWindow.win);
+
 	while (!event.windowClose())
 	{
 		if (config.showFps)
@@ -747,7 +547,6 @@ int main()
 
 		window.clear();
 
-		if (gamestate == GameState::RUNNING || gamestate == GameState::PAUSE)
 		{
 			{
 				agl::Mat4f proj;
@@ -827,7 +626,7 @@ int main()
 				blankRect.setTextureScaling({1, 1, 1});
 				blankRect.setTextureTranslation({0, 0, 0});
 				blankRect.setTexture(&blank);
-				blankRect.setColor(agl::Color::Red);
+				blankRect.setColor(agl::Color::White);
 				blankRect.setRotation({0, 0, 0});
 				blankRect.setSize({3, 3});
 				blankRect.setPosition(windowSize / 2 - blankRect.getSize() / 2);
@@ -842,21 +641,34 @@ int main()
 				blankRect.setPosition({0, 0, 0});
 				window.drawShape(blankRect);
 			}
-		}
-		else if (gamestate == GameState::CMD)
-		{
-			agl::Mat4f proj;
-			agl::Mat4f trans;
-			proj.ortho(0, windowSize.x, windowSize.y, 0, 0.1, 100);
-			trans.lookAt({0, 0, 10}, {0, 0, 0}, {0, 1, 0});
-
-			uiShader.use();
-			window.getShaderUniforms(uiShader);
-			window.updateMvp(proj * trans);
-
 			if (gamestate == GameState::CMD)
 			{
-				window.draw(cmdBox);
+				if (cmdBox.commit)
+				{
+					auto array = splitString(cmdBox.cmd, ' ');
+
+					if (array.front() == "set")
+					{
+						for (unsigned int i = 0; i < blockDefs.size(); i++)
+						{
+							auto &b = blockDefs[i];
+
+							if (b.name.substr(0, array[1].length()) == array[1])
+							{
+								cmdBox.pallete = blockNameToDef["minecraft:" + b.name];
+								break;
+							}
+						}
+					}
+
+					cmdBox.cmd	  = "";
+					cmdBox.commit = false;
+					gamestate	  = GameState::RUNNING;
+				}
+				else
+				{
+					window.draw(cmdBox);
+				}
 			}
 		}
 
