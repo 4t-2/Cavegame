@@ -191,42 +191,132 @@ Collision boxCollide(Box b1, Box b2)
 
 void correctPositionXZ(Player &player, World &world)
 {
-	for (int x = player.pos.x - 0.3; x < player.pos.x + 0.3; x++)
+	// correct side pos
+
+	// +X
 	{
-		for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+		int x = player.pos.x + 0.3;
+		int z = player.pos.z;
+
+		if (x != int(player.pos.x))
 		{
-			if (world.getAtPos({x, y, (int)player.pos.z}))
+			for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
 			{
-				agl::Vec<float, 2> center = {x + .5, y + .5, (int)player.pos.z + .5};
-				if (center.x > player.pos.x)
+				if (world.getAtPos({x, y, z}))
 				{
 					player.vel.x = 0;
-					player.pos.x = center.x - 0.3 - .5;
-				}
-				else if (center.x < player.pos.x)
-				{
-					player.vel.x = 0;
-					player.pos.x = center.x + 0.3 + .5;
+					player.pos.x = x - .3;
 				}
 			}
 		}
 	}
-	for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+	// -X
 	{
-		for (int z = player.pos.z - 0.3; z < player.pos.z + 0.3; z++)
+		int x = player.pos.x - 0.3;
+		int z = player.pos.z;
+
+		if (x != int(player.pos.x))
 		{
-			if (world.getAtPos({(int)player.pos.x, y, z}))
+			for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
 			{
-				agl::Vec<float, 2> center = {(int)player.pos.x + .5, y + .5, z + .5};
-				if (center.z > player.pos.z)
+				if (world.getAtPos({x, y, z}))
 				{
-					player.vel.z = 0;
-					player.pos.z = center.z - 0.3 - .5;
+					player.vel.x = 0;
+					player.pos.x = x + 1.3;
 				}
-				else if (center.z < player.pos.z)
+			}
+		}
+	}
+	// +Z
+	{
+		int x = player.pos.x;
+		int z = player.pos.z + 0.3;
+
+		if (z != int(player.pos.z))
+		{
+			for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+			{
+				if (world.getAtPos({x, y, z}))
 				{
 					player.vel.z = 0;
-					player.pos.z = center.z + 0.3 + .5;
+					player.pos.z = z - .3;
+				}
+			}
+		}
+	}
+	// -Z
+	{
+		int x = player.pos.x;
+		int z = player.pos.z - 0.3;
+
+		if (z != int(player.pos.z))
+		{
+			for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+			{
+				if (world.getAtPos({x, y, z}))
+				{
+					player.vel.z = 0;
+					player.pos.z = z + 1.3;
+				}
+			}
+		}
+	}
+
+	// diagonal
+
+	int xoff = 0;
+	if (player.pos.x - (int)player.pos.x > .7)
+	{
+		xoff = 1;
+	}
+	else if (player.pos.x - (int)player.pos.x < .3)
+	{
+		xoff = -1;
+	}
+	int zoff = 0;
+	if (player.pos.z - (int)player.pos.z > .7)
+	{
+		zoff = 1;
+	}
+	else if (player.pos.z - (int)player.pos.z < .3)
+	{
+		zoff = -1;
+	}
+
+	if (xoff != 0 && zoff != 0)
+	{
+		int x = player.pos.x + xoff;
+		int z = player.pos.z + zoff;
+
+		for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+		{
+			if (world.getAtPos({x, y, z}))
+			{
+				if (fabs(player.vel.x) > fabs(player.vel.z))
+				{
+					if (player.vel.x > 0 && xoff > 0)
+					{
+						player.vel.x = 0;
+						player.pos.x = x - .3;
+					}
+					else if (player.vel.x < 0 && xoff < 0)
+					{
+						player.vel.x = 0;
+						player.pos.x = x + 1.3;
+					}
+				}
+				else
+				{
+					if (player.vel.z > 0 && zoff > 0)
+					{
+						player.vel.z = 0;
+						player.pos.z = z - .3;
+					}
+					else if (player.vel.z < 0 && zoff < 0)
+					{
+						player.vel.z = 0;
+						player.pos.z = z + 1.3;
+					}
 				}
 			}
 		}
@@ -235,6 +325,8 @@ void correctPositionXZ(Player &player, World &world)
 
 void correctPositionY(Player &player, World &world)
 {
+	player.grounded = false;
+
 	for (int x = player.pos.x - 0.29; x < player.pos.x + 0.29; x++)
 	{
 		for (int z = player.pos.z - 0.29; z < player.pos.z + 0.29; z++)
@@ -262,6 +354,9 @@ void correctPositionY(Player &player, World &world)
 
 void movePlayer(Player &player, agl::Vec<float, 3> acc, World &world)
 {
+	player.vel.y *= 0.98;
+	player.vel.y += GRAVACC;
+
 	player.vel.x *= BLCKFRC * 0.91;
 	player.vel.z *= BLCKFRC * 0.91;
 
@@ -285,17 +380,14 @@ void movePlayer(Player &player, agl::Vec<float, 3> acc, World &world)
 
 	player.vel += acc * 0.1;
 
-	player.pos.x += player.vel.x;
-	player.pos.z += player.vel.z;
-
-	correctPositionXZ(player, world);
-
 	player.pos.y += player.vel.y;
 
 	correctPositionY(player, world);
 
-	player.vel.y *= 0.98;
-	player.vel.y += GRAVACC;
+	player.pos.x += player.vel.x;
+	player.pos.z += player.vel.z;
+
+	correctPositionXZ(player, world);
 }
 
 void updateSelected(Player &player, agl::Vec<int, 3> &selected, agl::Vec<int, 3> &front, World &world)
