@@ -620,7 +620,7 @@ int main()
 						{&blockList},
 						[&](std::vector<std::string> v) {
 							toggleFullscreen(window.baseWindow.dpy, window.baseWindow.win);
-							
+
 							return;
 						}},
 	};
@@ -992,8 +992,7 @@ int main()
 
 			if (rclis.ls == ListenState::First && !(front == player.pos))
 			{
-				auto block	= world.getBlock(front);
-				block->type = player.pallete[player.currentPallete];
+				world.setBlock(front, BlockData{(unsigned int)player.pallete[player.currentPallete]});
 
 				for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
 				{
@@ -1006,8 +1005,7 @@ int main()
 			}
 			if (lclis.ls == ListenState::First && gamestate)
 			{
-				auto block	= world.getBlock(selected);
-				block->type = world.air;
+				world.setBlock(selected, BlockData{(unsigned int)world.air});
 
 				for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
 				{

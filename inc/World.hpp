@@ -36,13 +36,104 @@ namespace std
 	};
 } // namespace std
 
+template <typename T> class OcTree
+{
+	public:
+		int size;
+
+		T value;
+
+		OcTree<T> ***node;
+
+		OcTree()
+		{
+		}
+
+		OcTree(T &startVal, int size)
+		{
+			setup(startVal, size);
+		}
+
+		~OcTree()
+		{
+			delete[] node;
+		}
+
+		void setup(T &startVal, int size)
+		{
+			value	   = startVal;
+			this->size = size;
+		}
+
+		void setValue(agl::Vec<int, 3> pos, T &newValue)
+		{
+			if (size == 1)
+			{
+				value = newValue;
+			}
+			else
+			{
+				if (node == nullptr)
+				{
+					node = new OcTree[2][2][2];
+
+					node[0][0][0].setup(value, size / 2);
+					node[0][0][1].setup(value, size / 2);
+					node[0][1][0].setup(value, size / 2);
+					node[0][1][1].setup(value, size / 2);
+					node[1][0][0].setup(value, size / 2);
+					node[1][0][1].setup(value, size / 2);
+					node[1][1][0].setup(value, size / 2);
+					node[1][1][1].setup(value, size / 2);
+				}
+
+				int x = (pos.x + 1) <= (size / 2);
+				int y = (pos.y + 1) <= (size / 2);
+				int z = (pos.z + 1) <= (size / 2);
+
+				T value = node[x][y][z]->setValue(
+					{pos.x - ((size / 2) * -x), pos.y - ((size / 2) * -y), pos.z - ((size / 2) * -z)}, newValue);
+
+				if (node[0][0][0] == node[0][0][1] && node[0][0][1] == node[0][1][0] &&
+					node[0][1][0] == node[0][1][1] && node[0][1][1] == node[1][0][0] &&
+					node[1][0][0] == node[1][0][1] && node[1][0][1] == node[1][1][0] && node[1][1][0] == node[1][1][1])
+				{
+					value = node;
+					delete[] node;
+				}
+			}
+		}
+
+		T getValue(agl::Vec<int, 3> pos)
+		{
+			if (node != nullptr)
+			{
+				return value;
+			}
+			else
+			{
+				int x = (pos.x + 1) <= (size / 2);
+				int y = (pos.y + 1) <= (size / 2);
+				int z = (pos.z + 1) <= (size / 2);
+
+				return node[x][y][z]->getValue(
+					{pos.x - ((size / 2) * -x), pos.y - ((size / 2) * -y), pos.z - ((size / 2) * -z)});
+			}
+		}
+};
+
 struct ChunkRaw
 {
-		BlockData blocks[16][385][16];
+		BlockData blocks[16][384][16];
 
-		BlockData &at(agl::Vec<int, 3> v)
+		BlockData &get(agl::Vec<int, 3> v)
 		{
 			return blocks[v.x][v.y][v.z];
+		}
+
+		void set(agl::Vec<int, 3> v, BlockData &block)
+		{
+			blocks[v.x][v.y][v.z] = block;
 		}
 };
 
@@ -112,7 +203,7 @@ class World
 		{
 			agl::Vec<int, 3> chunkPos;
 			chunkPos.x = pos.x >> 4;
-			chunkPos.y = pos.y / 385;
+			chunkPos.y = pos.y / 384;
 			chunkPos.z = pos.z >> 4;
 
 			if (loadedChunks.count(chunkPos) == 0 || pos.y < 0)
@@ -121,7 +212,7 @@ class World
 			}
 
 			return loadedChunks[chunkPos]
-					   .at(pos - agl::Vec<int, 3>{chunkPos.x * 16, chunkPos.y * 385, chunkPos.z * 16})
+					   .get(pos - agl::Vec<int, 3>{chunkPos.x * 16, chunkPos.y * 384, chunkPos.z * 16})
 					   .type != air;
 		}
 
@@ -129,36 +220,34 @@ class World
 
 		void createChunk(agl::Vec<int, 3> pos);
 
-		unsigned int &get(agl::Vec<int, 3> pos)
+		BlockData getBlock(agl::Vec<int, 3> pos)
 		{
 			agl::Vec<int, 3> chunkPos;
 			chunkPos.x = pos.x >> 4;
-			chunkPos.y = pos.y / 385;
+			chunkPos.y = pos.y / 384;
 			chunkPos.z = pos.z >> 4;
 
 			if (loadedChunks.count(chunkPos) == 0 || pos.y < 0)
 			{
-				return air;
+				return BlockData{air};
 			}
 
-			return loadedChunks[chunkPos]
-				.at(pos - agl::Vec<int, 3>{chunkPos.x * 16, chunkPos.y * 385, chunkPos.z * 16})
-				.type;
+			return loadedChunks[chunkPos].get(pos -
+											  agl::Vec<int, 3>{chunkPos.x * 16, chunkPos.y * 384, chunkPos.z * 16});
 		}
 
-		BlockData *getBlock(agl::Vec<int, 3> pos)
+		void setBlock(agl::Vec<int, 3> pos, BlockData data)
 		{
 			agl::Vec<int, 3> chunkPos;
 			chunkPos.x = pos.x >> 4;
-			chunkPos.y = pos.y / 385;
+			chunkPos.y = pos.y / 384;
 			chunkPos.z = pos.z >> 4;
-
+			
 			if (loadedChunks.count(chunkPos) == 0 || pos.y < 0)
 			{
-				return nullptr;
+				return;
 			}
 
-			return &loadedChunks[chunkPos].at(pos -
-											  agl::Vec<int, 3>{chunkPos.x * 16, chunkPos.y * 385, chunkPos.z * 16});
+			loadedChunks[chunkPos].set(pos - agl::Vec<int, 3>{chunkPos.x * 16, chunkPos.y * 384, chunkPos.z * 16}, data);
 		}
 };

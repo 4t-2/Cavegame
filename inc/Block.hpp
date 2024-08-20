@@ -34,11 +34,7 @@ struct AmOcCache
 
 struct BlockData
 {
-		bool		 needUpdate = true;
 		unsigned int type;
-
-		Covered	  exposed;
-		AmOcCache aoc;
 };
 
 struct Grid3
@@ -116,7 +112,7 @@ struct Element
 			to.y = (float)val["to"][1].asInt() / 16;
 			to.z = (float)val["to"][2].asInt() / 16;
 
-			if(from == agl::Vec<float, 3>{0, 0, 0} && to == agl::Vec<float, 3>{1, 1, 1})
+			if (from == agl::Vec<float, 3>{0, 0, 0} && to == agl::Vec<float, 3>{1, 1, 1})
 			{
 				solid = true;
 			}
