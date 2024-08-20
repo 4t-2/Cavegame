@@ -3,6 +3,7 @@
 #include "Atlas.hpp"
 #include "Block.hpp"
 #include <AXIS/ax.hpp>
+#include <algorithm>
 
 class MCText
 {
@@ -142,6 +143,79 @@ inline std::vector<std::string> splitString(const std::string &str, char delimit
 	return tokens;
 }
 
+class CommandFunction
+{
+	public:
+		std::string								name;
+		std::vector<std::vector<std::string> *> params;
+
+		std::function<void(std::vector<std::string>)> func;
+};
+
+inline void drawList(std::string input, agl::Vec<float, 2> offset, std::vector<std::string> &blockList, int length,
+					 MCText &text, agl::Rectangle &rect, agl::Texture &blank, agl::Vec<int, 2> winSize,
+					 agl::RenderWindow &win)
+{
+	int width  = 0;
+	int height = 0;
+
+	for (auto &element : blockList)
+	{
+		if (element.substr(0, input.size()) == input)
+		{
+			auto vec = text.fakeDraw(element, {0, 0});
+
+			if (width < vec.x)
+			{
+				width = vec.x;
+			}
+
+			height++;
+			if (height >= 10)
+			{
+				break;
+			}
+		}
+	}
+
+	height *= 24;
+
+	rect.setTexture(&blank);
+	rect.setColor(agl::Color{0, 0, 0, 192});
+	rect.setPosition({offset.x - 2, winSize.y - 30 - height});
+	rect.setSize({width, height});
+
+	win.drawShape(rect);
+
+	int count = 0;
+	for (auto &element : blockList)
+	{
+		if (element.substr(0, input.size()) == input)
+		{
+			if (count == 0)
+			{
+				text.draw(win, element, {offset.x + 2, winSize.y - 24 - height + 2 + (count * 24)},
+						  agl::Color{0x3c, 0x3c, 0x00, 0xFF});
+				text.draw(win, element, {offset.x, winSize.y - 24 - height + (count * 24)},
+						  agl::Color{0xfd, 0xfe, 0x00, 0xFF});
+			}
+			else
+			{
+				text.draw(win, element, {offset.x + 2, winSize.y - 24 - height + 2 + (count * 24)},
+						  agl::Color{0x34, 0x34, 0x34, 0xFF});
+				text.draw(win, element, {offset.x, winSize.y - 24 - height + (count * 24)},
+						  agl::Color{0xDE, 0xDE, 0xDE, 0xFF});
+			}
+
+			count++;
+			if (count >= length)
+			{
+				break;
+			}
+		}
+	}
+}
+
 class CommandBox : public agl::Drawable
 {
 	public:
@@ -150,7 +224,7 @@ class CommandBox : public agl::Drawable
 
 		std::string cmd = "";
 
-		std::vector<Block> &blocks;
+		std::vector<std::string> funcNames;
 
 		agl::Vec<int, 2> &winSize;
 
@@ -158,10 +232,21 @@ class CommandBox : public agl::Drawable
 
 		MCText &text;
 
-		CommandBox(agl::Rectangle &rect, MCText &text, agl::Texture &blank, std::vector<Block> &blocks,
-				   agl::Vec<int, 2> &winSize)
-			: rect(rect), blank(blank), blocks(blocks), winSize(winSize), text(text)
+		std::vector<CommandFunction> functions;
+
+		CommandBox(agl::Rectangle &rect, MCText &text, agl::Texture &blank, agl::Vec<int, 2> &winSize)
+			: rect(rect), blank(blank), winSize(winSize), text(text)
 		{
+		}
+
+		void setCommands()
+		{
+			for (auto &e : functions)
+			{
+				funcNames.emplace_back(e.name);
+			}
+
+			std::sort(funcNames.begin(), funcNames.end());
 		}
 
 		void update(std::string buffer)
@@ -206,85 +291,5 @@ class CommandBox : public agl::Drawable
 			}
 		}
 
-		void drawFunction(agl::RenderWindow &win) override
-		{
-			rect.setTexture(&blank);
-			rect.setColor(agl::Color{0, 0, 0, 127});
-			rect.setPosition({4, winSize.y - 4 - 24, 0});
-			rect.setRotation({0, 0, 0});
-			rect.setSize({winSize.x - 8, 24, 0});
-
-			win.drawShape(rect);
-
-			auto array = splitString(cmd, ' ');
-
-			{
-				agl::Vec<float, 2> offset = {8, winSize.y - 24};
-				for (auto it = array.begin(); it != array.end(); it++)
-				{
-					auto &e = *it;
-
-					text.draw(win, e, {offset.x + 2, offset.y + 2}, agl::Color{0x34, 0x34, 0x34, 0xFF});
-					auto last = text.draw(win, e, offset, agl::Color{0xDE, 0xDE, 0xDE, 0xFF});
-
-					if (*array.begin() == "set")
-					{
-						int width  = 0;
-						int height = 0;
-
-						for (unsigned int i = 0; i < blocks.size(); i++)
-						{
-							auto &b = blocks[i];
-
-							if (b.name.substr(0, e.length()) == e)
-							{
-								auto vec = text.fakeDraw(b.name, {0, 0});
-
-								if (width < vec.x)
-								{
-									width = vec.x;
-								}
-								
-								height++;
-								if (height >= 10)
-								{
-									break;
-								}
-							}
-						}
-
-						height *= 24;
-
-						rect.setTexture(&blank);
-						rect.setColor(agl::Color{0, 0, 0, 192});
-						rect.setPosition({offset.x - 2, winSize.y - 30 - height});
-						rect.setSize({width, height});
-
-						win.drawShape(rect);
-
-						int count = 0;
-						for (unsigned int i = 0; i < blocks.size(); i++)
-						{
-							auto &b = blocks[i];
-
-							if (b.name.substr(0, e.length()) == e)
-							{
-								text.draw(win, b.name, {offset.x + 2, winSize.y - 24 - height + 2 + (count * 24)},
-										  agl::Color{0x34, 0x34, 0x34, 0xFF});
-								text.draw(win, b.name, {offset.x, winSize.y - 24 - height + (count * 24)},
-										  agl::Color{0xDE, 0xDE, 0xDE, 0xFF});
-
-								count++;
-								if(count >= 10)
-								{
-									break;
-								}
-							}
-						}
-					}
-
-					offset.x = 8 + last.x;
-				}
-			}
-		}
+		void drawFunction(agl::RenderWindow &win) override;
 };

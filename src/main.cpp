@@ -432,9 +432,8 @@ void updateSelected(Player &player, agl::Vec<int, 3> &selected, agl::Vec<int, 3>
 	}
 }
 
-void setFullscreen(Display *display, Window window)
+void toggleFullscreen(Display *display, Window window)
 {
-	return;
 	Atom wmState	= XInternAtom(display, "_NET_WM_STATE", False);
 	Atom fullscreen = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False);
 
@@ -443,7 +442,7 @@ void setFullscreen(Display *display, Window window)
 	xev.xclient.window		 = window;
 	xev.xclient.message_type = wmState;
 	xev.xclient.format		 = 32;
-	xev.xclient.data.l[0]	 = 1; // _NET_WM_STATE_ADD
+	xev.xclient.data.l[0]	 = 2; // _NET_WM_STATE_ADD
 	xev.xclient.data.l[1]	 = fullscreen;
 	xev.xclient.data.l[2]	 = 0; // no second property to toggle
 
@@ -499,6 +498,7 @@ int main()
 
 	std::vector<Block>		   blockDefs;
 	std::map<std::string, int> blockNameToDef;
+	std::vector<std::string>   blockList;
 
 	agl::Texture elementDataTexture;
 
@@ -574,6 +574,11 @@ int main()
 		elementDataTexture.useNearestFiltering();
 	}
 
+	for (auto &e : blockNameToDef)
+	{
+		blockList.emplace_back(e.first.substr(10));
+	}
+
 	std::cout << "Misc Work" << '\n';
 
 	agl::Rectangle blankRect;
@@ -585,17 +590,48 @@ int main()
 	World world;
 	world.setBasics(blockDefs);
 
+	Player player;
+
 	GameState gamestate = GameState::RUNNING;
 
-	CommandBox cmdBox(blankRect, text, blank, blockDefs, windowSize);
+	CommandBox cmdBox(blankRect, text, blank, windowSize);
+
+	cmdBox.functions = {
+		CommandFunction{"set",
+						{&blockList},
+						[&](std::vector<std::string> v) {
+							std::string &name = v[1];
+
+							if (blockNameToDef.count("minecraft:" + name) != 0)
+							{
+								player.pallete[player.currentPallete] = blockNameToDef["minecraft:" + name];
+							}
+
+							return;
+						}},
+		CommandFunction{"resetpos",
+						{&blockList},
+						[&](std::vector<std::string> v) {
+							player.pos = {16 * 16, 150, 16 * 16};
+
+							return;
+						}},
+		CommandFunction{"togglefullscreen",
+						{&blockList},
+						[&](std::vector<std::string> v) {
+							toggleFullscreen(window.baseWindow.dpy, window.baseWindow.win);
+							
+							return;
+						}},
+	};
+
+	cmdBox.setCommands();
 
 	agl::Vec<int, 3> selected;
 	agl::Vec<int, 3> front;
 
 	Listener lclis;
 	Listener rclis;
-
-	Player player;
 
 	for (auto &e : player.pallete)
 	{
@@ -624,8 +660,6 @@ int main()
 	std::cout << "entering" << '\n';
 
 	float currentFrame = 0;
-
-	setFullscreen(window.baseWindow.dpy, window.baseWindow.win);
 
 	while (!event.windowClose())
 	{
@@ -773,20 +807,24 @@ int main()
 			{
 				if (cmdBox.commit)
 				{
-					auto array = splitString(cmdBox.cmd, ' ');
+					std::vector<std::string> array	= splitString(cmdBox.cmd, ' ');
+					int						 funcid = -1;
 
-					if (array.front() == "set")
+					if (array.size() != 0)
 					{
-						for (unsigned int i = 0; i < blockDefs.size(); i++)
+						for (int i = 0; i < cmdBox.functions.size(); i++)
 						{
-							auto &b = blockDefs[i];
-
-							if (b.name.substr(0, array[1].length()) == array[1])
+							if (array[0] == cmdBox.functions[i].name)
 							{
-								player.pallete[player.currentPallete] = blockNameToDef["minecraft:" + b.name];
+								funcid = i;
 								break;
 							}
 						}
+					}
+
+					if (funcid != -1)
+					{
+						cmdBox.functions[funcid].func(array);
 					}
 
 					cmdBox.cmd	  = "";
