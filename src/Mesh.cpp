@@ -113,8 +113,6 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 
 	ChunkRaw &chunk = world.loadedChunks[chunkPos];
 
-	posList.reserve(32768);
-
 	BlockMap blockMap;
 
 	if (!world.loadedChunks.count(chunkPos + agl::Vec<int, 3>{1, 0, 0}))
@@ -134,20 +132,23 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 		world.createChunk(chunkPos + agl::Vec<int, 3>{0, 0, -1});
 	}
 
-	for (int y = MINHEIGHT; y < MAXHEIGHT; y++)
+	for (int stack = 0; stack < 24; stack++)
 	{
-		for (int x = 0; x < 16; x++)
+		for (int section = 0; section < 16; section++)
 		{
-			for (int z = 0; z < 16; z++)
+			int y = (stack * 16) + section;
+			for (int x = 0; x < 16; x++)
 			{
-				agl::Vec<float, 3> pos = agl::Vec<int, 3>{x, y, z};
-
-				auto block = chunk.get(pos);
-
-				if (block.type == world.air)
+				for (int z = 0; z < 16; z++)
 				{
-					continue;
-				}
+					agl::Vec<float, 3> pos = agl::Vec<int, 3>{x, y, z};
+
+					auto block = chunk.get(pos);
+
+					if (block.type == world.air)
+					{
+						continue;
+					}
 
 #define MACRO(X, Y, Z)                                                                            \
 	{                                                                                             \
@@ -177,169 +178,118 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 		MACRO(2, L, 2); \
 	}
 
-				MACRO2(0);
-				MACRO2(1);
-				MACRO2(2);
+					MACRO2(0);
+					MACRO2(1);
+					MACRO2(2);
 
 #undef MACRO2
 #undef MACRO
 
-				bool nonvis = true;
+					bool nonvis = true;
 
-				AmOcCache aoc;
+					AmOcCache aoc;
+					Exposed	  exposed;
 
-				if (blockMap.data[1][2][1])
-				{
-					nonvis = false;
-					/*block.up	 = true;*/
-
-					aoc.up.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, blockMap);
-					aoc.up.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, blockMap);
-					aoc.up.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, blockMap);
-					aoc.up.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, blockMap);
-				}
-				else
-				{
-					/*block.up = false;*/
-				}
-
-				if (blockMap.data[1][0][1])
-				{
-					nonvis = false;
-					/*block.down	 = true;*/
-
-					aoc.down.x0y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, blockMap);
-					aoc.down.x1y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, blockMap);
-					aoc.down.x0y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, blockMap);
-					aoc.down.x1y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, blockMap);
-				}
-				else
-				{
-					/*block.down = false;*/
-				}
-
-				// z
-
-				if (blockMap.data[1][1][2])
-				{
-					nonvis = false;
-					/*block.north	 = true;*/
-
-					aoc.north.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, blockMap);
-					aoc.north.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, blockMap);
-					aoc.north.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, blockMap);
-					aoc.north.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, blockMap);
-				}
-				else
-				{
-					/*block.north = false;*/
-				}
-
-				if (blockMap.data[1][1][0])
-				{
-					nonvis = false;
-					/*block.south	 = true;*/
-
-					aoc.south.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, blockMap);
-					aoc.south.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, blockMap);
-					aoc.south.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, blockMap);
-					aoc.south.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, blockMap);
-				}
-				else
-				{
-					/*block.south = false;*/
-				}
-
-				// x
-
-				if (blockMap.data[2][1][1])
-				{
-					nonvis = false;
-					/*block.east	 = true;*/
-
-					aoc.east.x0y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, blockMap);
-					aoc.east.x1y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, blockMap);
-					aoc.east.x0y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, blockMap);
-					aoc.east.x1y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, blockMap);
-				}
-				else
-				{
-					/*block.east = false;*/
-				}
-
-				if (blockMap.data[0][1][1])
-				{
-					nonvis = false;
-					/*block.west	 = true;*/
-
-					aoc.west.x0y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, blockMap);
-					aoc.west.x1y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, blockMap);
-					aoc.west.x0y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, blockMap);
-					aoc.west.x1y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, blockMap);
-				}
-				else
-				{
-					/*block.exposed.west = false;*/
-				}
-
-				if (!nonvis)
-				{
-					for (auto &e : blockDefs[block.type].elements)
+					if (blockMap.data[1][2][1])
 					{
-						agl::Mat4f scale;
-						scale.scale(e.size);
-						agl::Mat4f offset;
-						offset.translate(e.offset + pos + (chunkPos * 16));
-						agl::Mat4f mat = offset * scale;
+						nonvis	   = false;
+						exposed.up = true;
 
-						posList.push_back(mat.data[0][0]);
-						posList.push_back(mat.data[0][1]);
-						posList.push_back(mat.data[0][2]);
-						posList.push_back(mat.data[1][0]);
+						aoc.up.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, blockMap);
+						aoc.up.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, blockMap);
+						aoc.up.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, blockMap);
+						aoc.up.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, blockMap);
+					}
+					else
+					{
+						exposed.up = false;
+					}
 
-						posList.push_back(mat.data[1][1]);
-						posList.push_back(mat.data[1][2]);
-						posList.push_back(mat.data[2][0]);
-						posList.push_back(mat.data[2][1]);
+					if (blockMap.data[1][0][1])
+					{
+						nonvis		 = false;
+						exposed.down = true;
 
-						posList.push_back(mat.data[2][2]);
-						posList.push_back(mat.data[3][0]);
-						posList.push_back(mat.data[3][1]);
-						posList.push_back(mat.data[3][2]);
+						aoc.down.x0y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, blockMap);
+						aoc.down.x1y0 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, blockMap);
+						aoc.down.x0y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, blockMap);
+						aoc.down.x1y1 = AmOcCalc(pos + chunkPosBig, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, blockMap);
+					}
+					else
+					{
+						exposed.down = false;
+					}
 
-#define COOLERSHIT(dir1, dir2)                    \
-	{                                             \
-		unsigned int buf = 0;                     \
-                                                  \
-		buf |= aoc.dir1.x0y0 << 0;                \
-		buf |= aoc.dir1.x0y1 << 2;                \
-		buf |= aoc.dir1.x1y0 << 4;                \
-		buf |= aoc.dir1.x1y1 << 6;                \
-		buf |= (long long)e.dir1.tintImage << 8;  \
-                                                  \
-		buf |= aoc.dir2.x0y0 << 16;               \
-		buf |= aoc.dir2.x0y1 << 18;               \
-		buf |= aoc.dir2.x1y0 << 20;               \
-		buf |= aoc.dir2.x1y1 << 22;               \
-		buf |= (long long)e.dir2.tintImage << 24; \
-                                                  \
-		posList.push_back(*(float *)(&buf));      \
-	}
+					// z
 
-						COOLERSHIT(up, down);	  // 3 x
-						COOLERSHIT(south, north); // 3 y
-						COOLERSHIT(west, east);	  // 3 z
+					if (blockMap.data[1][1][2])
+					{
+						nonvis		  = false;
+						exposed.north = true;
 
-						posList.push_back(*(float *)&e.id); // 3 w
+						aoc.north.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, blockMap);
+						aoc.north.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, blockMap);
+						aoc.north.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, blockMap);
+						aoc.north.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, blockMap);
+					}
+					else
+					{
+						exposed.north = false;
+					}
 
-						// posList.push_back(0); // 4 x
-						// posList.push_back(0); // 4 y
-						// posList.push_back(0); // 4 z
-						// posList.push_back(0); // 4 w
-						// posList.push_back(0); // 5 x
-						// posList.push_back(0); // 5 y
-						// posList.push_back(0); // 5 z
-						// posList.push_back(0); // 5 w
+					if (blockMap.data[1][1][0])
+					{
+						nonvis		  = false;
+						exposed.south = true;
+
+						aoc.south.x0y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, blockMap);
+						aoc.south.x1y0 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, blockMap);
+						aoc.south.x0y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, blockMap);
+						aoc.south.x1y1 = AmOcCalc(pos + chunkPosBig, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, blockMap);
+					}
+					else
+					{
+						exposed.south = false;
+					}
+
+					// x
+
+					if (blockMap.data[2][1][1])
+					{
+						nonvis		 = false;
+						exposed.east = true;
+
+						aoc.east.x0y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, blockMap);
+						aoc.east.x1y0 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, blockMap);
+						aoc.east.x0y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, blockMap);
+						aoc.east.x1y1 = AmOcCalc(pos + chunkPosBig, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, blockMap);
+					}
+					else
+					{
+						exposed.east = false;
+					}
+
+					if (blockMap.data[0][1][1])
+					{
+						nonvis		 = false;
+						exposed.west = true;
+
+						aoc.west.x0y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, blockMap);
+						aoc.west.x1y0 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, blockMap);
+						aoc.west.x0y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, blockMap);
+						aoc.west.x1y1 = AmOcCalc(pos + chunkPosBig, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, blockMap);
+					}
+					else
+					{
+						exposed.west = false;
+					}
+
+					if (!nonvis)
+					{
+						for (auto &e : blockDefs[block.type].elements)
+						{
+							e.draw(exposed, aoc, posBuffer, UVBuffer, lightBuffer, pos + chunkPosBig);
+						}
 					}
 				}
 			}

@@ -3,7 +3,7 @@
 #include "Atlas.hpp"
 #include <bitset>
 
-struct Covered
+struct Exposed
 {
 		bool up		= true;
 		bool down	= true;
@@ -63,7 +63,7 @@ struct Face
 		agl::Vec<int, 2> uv		   = {0, 0};
 		agl::Vec<int, 2> size	   = {0, 0};
 		bool			 exists	   = false;
-		int				 tintImage = 0;
+		Image			*tintImage = nullptr;
 		bool			 cull	   = false;
 };
 
@@ -100,9 +100,6 @@ struct Element
 		agl::Vec<float, 3> size;
 		agl::Vec<float, 3> offset;
 
-		int						  id = 0;
-		std::vector<unsigned int> elementDataArray;
-
 		Element(Json::Value &val, std::map<std::string, agl::Vec<int, 2>> &texHash, agl::Vec<int, 2> atlasSize,
 				Image &tintGrass, Image &tintFoliage, std::string &name, bool &solid)
 		{
@@ -125,10 +122,6 @@ struct Element
 			offset = from;
 			size   = to - from;
 
-			static int maxElementId = 0;
-			id						= maxElementId;
-			maxElementId++;
-
 #define COOLSHIT(dir)                                                                                            \
 	if (val["faces"].isMember(#dir))                                                                             \
 	{                                                                                                            \
@@ -143,11 +136,11 @@ struct Element
 		{                                                                                                        \
 			if (name.find("grass") != std::string::npos)                                                         \
 			{                                                                                                    \
-				dir.tintImage = 1;                                                                               \
+				dir.tintImage = &tintGrass;                                                                      \
 			}                                                                                                    \
 			else                                                                                                 \
 			{                                                                                                    \
-				dir.tintImage = 2;                                                                               \
+				dir.tintImage = &tintFoliage;                                                                    \
 			}                                                                                                    \
 		}                                                                                                        \
 		if (v.isMember("cullface"))                                                                              \
@@ -158,25 +151,6 @@ struct Element
 		{                                                                                                        \
 			dir.cull = false;                                                                                    \
 		}                                                                                                        \
-		{                                                                                                        \
-			unsigned int buf1 = 0;                                                                               \
-			unsigned int buf2 = 0;                                                                               \
-                                                                                                                 \
-			buf1 |= 1 << 31;                                                                                     \
-			buf1 |= dir.uv.x << 0;                                                                               \
-			buf1 |= dir.uv.y << 16;                                                                              \
-                                                                                                                 \
-			buf2 |= (dir.size.x - 1) << 0;                                                                       \
-			buf2 |= (dir.size.y - 1) << 16;                                                                      \
-                                                                                                                 \
-			elementDataArray.push_back(buf1);                                                                    \
-			elementDataArray.push_back(buf2);                                                                    \
-		}                                                                                                        \
-	}                                                                                                            \
-	else                                                                                                         \
-	{                                                                                                            \
-		elementDataArray.push_back(0);                                                                           \
-		elementDataArray.push_back(0);                                                                           \
 	}
 
 			// 10 bytes each
@@ -186,6 +160,344 @@ struct Element
 			COOLSHIT(south)
 			COOLSHIT(east)
 			COOLSHIT(west)
+		}
+
+		inline void addPoints(agl::Vec<float, 3> pos, agl::Vec<float, 3> size, agl::Vec<float, 3> rot,
+							  std::vector<float> &posBuffer)
+		{
+			agl::Mat4f tranlation;
+			tranlation.translate(pos);
+			agl::Mat4f scale;
+			scale.scale(size);
+			agl::Mat4f rotation;
+			rotation.rotate(rot);
+
+			agl::Mat4f transform = tranlation * rotation * scale;
+
+			agl::Vec<float, 3> pos00 = transform * agl::Vec<float, 4>{0, 0, 0, 1};
+			agl::Vec<float, 3> pos10 = transform * agl::Vec<float, 4>{1, 0, 0, 1};
+			agl::Vec<float, 3> pos01 = transform * agl::Vec<float, 4>{0, 1, 0, 1};
+			agl::Vec<float, 3> pos11 = transform * agl::Vec<float, 4>{1, 1, 0, 1};
+
+			posBuffer.push_back(pos00.x);
+			posBuffer.push_back(pos00.y);
+			posBuffer.push_back(pos00.z);
+			posBuffer.push_back(pos10.x);
+			posBuffer.push_back(pos10.y);
+			posBuffer.push_back(pos10.z);
+			posBuffer.push_back(pos01.x);
+			posBuffer.push_back(pos01.y);
+			posBuffer.push_back(pos01.z);
+
+			posBuffer.push_back(pos10.x);
+			posBuffer.push_back(pos10.y);
+			posBuffer.push_back(pos10.z);
+			posBuffer.push_back(pos01.x);
+			posBuffer.push_back(pos01.y);
+			posBuffer.push_back(pos01.z);
+			posBuffer.push_back(pos11.x);
+			posBuffer.push_back(pos11.y);
+			posBuffer.push_back(pos11.z);
+		}
+
+		void addUV(std::vector<float> &UVBuffer, agl::Vec<int, 2> uv)
+		{
+			UVBuffer.push_back((float)uv.x / 512);
+			UVBuffer.push_back((float)uv.y / 512);
+			UVBuffer.push_back((float)uv.x / 512 + (16. / 512.));
+			UVBuffer.push_back((float)uv.y / 512);
+			UVBuffer.push_back((float)uv.x / 512);
+			UVBuffer.push_back((float)uv.y / 512 + (16. / 512.));
+
+			UVBuffer.push_back((float)uv.x / 512 + (16. / 512.));
+			UVBuffer.push_back((float)uv.y / 512);
+			UVBuffer.push_back((float)uv.x / 512);
+			UVBuffer.push_back((float)uv.y / 512 + (16. / 512.));
+			UVBuffer.push_back((float)uv.x / 512 + (16. / 512.));
+			UVBuffer.push_back((float)uv.y / 512 + (16. / 512.));
+		}
+
+		void draw(Exposed &exposed, AmOcCache &aoc, std::vector<float> &posBuffer, std::vector<float> &UVBuffer,
+				  std::vector<float> &lightBuffer, agl::Vec<float, 3> pos)
+		{
+			// y+
+			if (up.exists && !(exposed.up == false && up.cull == true))
+			{
+				agl::Vec<float, 4> col = {84. / 85., 84. / 85., 84. / 85., 1};
+				if (up.tintImage != nullptr)
+				{
+					col = up.tintImage
+							  ->at({(up.tintImage->size.x - 1) - ((up.tintImage->size.x - 1) * 0.8),
+									(up.tintImage->size.y - 1) * 0.4})
+							  .normalized();
+				}
+
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z + size.z);
+
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z + size.z);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z + size.z);
+
+				addUV(UVBuffer, up.uv);
+
+				lightBuffer.push_back((1 - (aoc.up.x0y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.up.x0y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.up.x0y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.up.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.up.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.up.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.up.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.up.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.up.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.up.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.up.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.up.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.up.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.up.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.up.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.up.x1y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.up.x1y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.up.x1y1 * .2)) * col.z);
+			}
+
+			// y-
+			if (down.exists && !(exposed.down == false && down.cull == true))
+			{
+				agl::Vec<float, 4> col = {25. / 51., 25. / 51., 25. / 51., 1};
+				if (down.tintImage != nullptr)
+				{
+					col = down.tintImage
+							  ->at({(down.tintImage->size.x - 1) - ((down.tintImage->size.x - 1) * 0.8),
+									(down.tintImage->size.y - 1) * 0.4})
+							  .normalized();
+				}
+
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z + size.z);
+
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z + size.z);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z + size.z);
+
+				addUV(UVBuffer, down.uv);
+
+				lightBuffer.push_back((1 - (aoc.down.x0y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.down.x0y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.down.x0y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.down.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.down.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.down.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.down.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.down.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.down.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.down.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.down.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.down.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.down.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.down.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.down.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.down.x1y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.down.x1y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.down.x1y1 * .2)) * col.z);
+			}
+
+			// z-
+			if (south.exists && !(exposed.south == false && south.cull == true))
+			{
+				agl::Vec<float, 4> col = {202. / 255., 202. / 255., 202. / 255., 1};
+				if (south.tintImage != nullptr)
+				{
+					col = south.tintImage
+							  ->at({(south.tintImage->size.x - 1) - ((south.tintImage->size.x - 1) * 0.8),
+									(south.tintImage->size.y - 1) * 0.4})
+							  .normalized();
+				}
+
+				addPoints({pos.x + size.x, pos.y + size.y, pos.z}, {-size.x, -size.y, 0}, {0, 0, 0}, posBuffer);
+				addUV(UVBuffer, south.uv);
+
+				lightBuffer.push_back((1 - (aoc.south.x0y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.south.x0y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.south.x0y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.south.x1y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.south.x1y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.south.x1y1 * .2)) * col.z);
+			}
+
+			// z+
+			if (north.exists && !(exposed.north == false && north.cull == true))
+			{
+				agl::Vec<float, 4> col = {202. / 255., 202. / 255., 202. / 255., 1};
+				if (north.tintImage != nullptr)
+				{
+					col = north.tintImage
+							  ->at({(north.tintImage->size.x - 1) - ((north.tintImage->size.x - 1) * 0.8),
+									(north.tintImage->size.y - 1) * 0.4})
+							  .normalized();
+				}
+
+				addPoints({pos.x, pos.y + size.y, pos.z + size.z}, {size.x, -size.y, 0}, {0, 0, 0}, posBuffer);
+				addUV(UVBuffer, north.uv);
+
+				lightBuffer.push_back((1 - (aoc.north.x0y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.north.x0y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.north.x0y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.north.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.north.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.north.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.north.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.north.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.north.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.north.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.north.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.north.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.north.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.north.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.north.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.north.x1y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.north.x1y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.north.x1y1 * .2)) * col.z);
+			}
+
+			// x-
+			if (west.exists && !(exposed.west == false && west.cull == true))
+			{
+				agl::Vec<float, 4> col = {151. / 255., 151. / 255., 151. / 255., 1};
+				if (west.tintImage != nullptr)
+				{
+					col = west.tintImage
+							  ->at({(west.tintImage->size.x - 1) - ((west.tintImage->size.x - 1) * 0.8),
+									(west.tintImage->size.y - 1) * 0.4})
+							  .normalized();
+				}
+
+				addPoints({pos.x, pos.y + size.y, pos.z}, {size.z, -size.y}, {0, 90, 0}, posBuffer);
+				addUV(UVBuffer, west.uv);
+
+				lightBuffer.push_back((1 - (aoc.west.x0y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.west.x0y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.west.x0y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.west.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.west.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.west.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.west.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.west.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.west.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.west.x1y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.west.x1y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.west.x1y1 * .2)) * col.z);
+			}
+
+			// x+
+			if (east.exists && !(exposed.east == false && east.cull == true))
+			{
+				agl::Vec<float, 4> col = {151. / 255., 151. / 255., 151. / 255., 1};
+				if (east.tintImage != nullptr)
+				{
+					col = east.tintImage
+							  ->at({(east.tintImage->size.x - 1) - ((east.tintImage->size.x - 1) * 0.8),
+									(east.tintImage->size.y - 1) * 0.4})
+							  .normalized();
+				}
+
+				addPoints({pos.x + size.x, pos.y + size.y, pos.z + size.z}, {-size.z, -size.y, 0}, {0, 90, 0},
+						  posBuffer);
+				addUV(UVBuffer, east.uv);
+
+				lightBuffer.push_back((1 - (aoc.east.x0y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.east.x0y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.east.x0y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.east.x1y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.east.x1y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.east.x1y1 * .2)) * col.z);
+			}
 		}
 };
 

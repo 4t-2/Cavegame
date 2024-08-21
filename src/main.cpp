@@ -476,9 +476,8 @@ int main()
 
 	std::cout << "Shader Compilation" << '\n';
 
-	ax::Program worldShader(ax::Shader("./shader/worldVert.glsl", GL_VERTEX_SHADER),
-							ax::Shader("./shader/worldGeom.glsl", GL_GEOMETRY_SHADER),
-							ax::Shader("./shader/worldFrag.glsl", GL_FRAGMENT_SHADER));
+	ax::Program blockShader(ax::Shader("./shader/blockVert.glsl", GL_VERTEX_SHADER),
+							ax::Shader("./shader/blockFrag.glsl", GL_FRAGMENT_SHADER));
 
 	ax::Program uiShader(ax::Shader("./shader/frag.glsl", GL_FRAGMENT_SHADER),
 						 ax::Shader("./shader/uivert.glsl", GL_VERTEX_SHADER));
@@ -499,8 +498,6 @@ int main()
 	std::vector<Block>		   blockDefs;
 	std::map<std::string, int> blockNameToDef;
 	std::vector<std::string>   blockList;
-
-	agl::Texture elementDataTexture;
 
 	agl::Texture blank;
 	blank.setBlank();
@@ -550,28 +547,7 @@ int main()
 		{
 			blockNameToDef["minecraft:" + e.first] = blockDefs.size();
 			blockDefs.emplace_back(atlas, e.first, jsonPairs, tintTextureGrass, tintTextureFoliage);
-
-			for (auto &e : blockDefs.back().elements)
-			{
-				for (auto i : e.elementDataArray)
-				{
-					// 1 face = 1/2 pixel
-					// full = 3 pixels
-					databuf.push_back(*(float *)&i);
-					// databuf.push_back(2);
-				}
-			}
 		}
-
-		databuf.resize(128 * 128 * 4);
-
-		elementDataTexture.genTexture();
-		elementDataTexture.bind(elementDataTexture);
-
-		// 128*128
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 128, 128, 0, GL_RGBA, GL_FLOAT, &databuf[0]);
-
-		elementDataTexture.useNearestFiltering();
 	}
 
 	for (auto &e : blockNameToDef)
@@ -647,12 +623,7 @@ int main()
 	std::thread thread(buildThread, std::ref(wm), std::ref(closeThread));
 
 	{
-		worldShader.use();
-		auto id = worldShader.getUniformLocation("elementDataSampler");
-
-		glUniform1i(id, 1);
-
-		id = worldShader.getUniformLocation("textureSampler");
+		int id = blockShader.getUniformLocation("textureSampler");
 
 		glUniform1i(id, 0);
 	}
@@ -661,8 +632,18 @@ int main()
 
 	float currentFrame = 0;
 
+	bool windowFocus = true;
+
 	while (!event.windowClose())
 	{
+		{
+			int	   revert = 0;
+			Window win;
+			XGetInputFocus(window.baseWindow.dpy, &win, &revert);
+
+			windowFocus = win == window.baseWindow.win;
+		}
+
 		if (config.showFps)
 		{
 			static Timer t;
@@ -707,8 +688,8 @@ int main()
 				glEnable(GL_DEPTH_TEST);
 			}
 
-			worldShader.use();
-			window.getShaderUniforms(worldShader);
+			blockShader.use();
+			window.getShaderUniforms(blockShader);
 			{
 				agl::Mat<float, 4> tran;
 				tran.translate(player.pos * -1 - agl::Vec{0.f, 1.62f, 0.f});
@@ -722,17 +703,15 @@ int main()
 
 				window.updateMvp(proj * rot * tran);
 
-				int id = worldShader.getUniformLocation("time");
-				worldShader.setUniform(id, currentFrame);
-				id = worldShader.getUniformLocation("rotx");
-				worldShader.setUniform(id, player.rot.x);
-				id = worldShader.getUniformLocation("roty");
-				worldShader.setUniform(id, player.rot.y);
+				/*int id = worldShader.getUniformLocation("time");*/
+				/*worldShader.setUniform(id, currentFrame);*/
+				/*id = worldShader.getUniformLocation("rotx");*/
+				/*worldShader.setUniform(id, player.rot.x);*/
+				/*id = worldShader.getUniformLocation("roty");*/
+				/*worldShader.setUniform(id, player.rot.y);*/
 			}
 
-			glActiveTexture(GL_TEXTURE0 + 1);
-			agl::Texture::bind(elementDataTexture);
-			glActiveTexture(GL_TEXTURE0 + 0);
+			glActiveTexture(GL_TEXTURE0);
 			agl::Texture::bind(atlas.texture);
 
 			wm.mutPos.lock();
@@ -847,190 +826,203 @@ int main()
 
 		if (gamestate == GameState::RUNNING)
 		{
-			static agl::Vec<int, 2> oldMousePos = event.getPointerWindowPosition();
-
-			agl::Vec<int, 2> mousePos = event.getPointerWindowPosition();
-
-			agl::Vec<int, 2> deltaPos = mousePos - oldMousePos;
-
-			constexpr float sensitivity = .5;
-
-			agl::Vec<float, 2> rotDelta =
-				(agl::Vec<float, 3>(deltaPos.y, -deltaPos.x, 0) * 1.2 * std::pow(sensitivity * 0.6 + 0.2, 3));
-
-			player.rot += rotDelta * PI / 180;
-
-			if (player.rot.x > PI / 2)
+			if (windowFocus)
 			{
-				player.rot.x = PI / 2;
-			}
-			else if (player.rot.x < -PI / 2)
-			{
+				static agl::Vec<int, 2> oldMousePos = event.getPointerWindowPosition();
 
-				player.rot.x = -PI / 2;
-			}
+				agl::Vec<int, 2> mousePos = event.getPointerWindowPosition();
 
-			oldMousePos = mousePos;
+				agl::Vec<int, 2> deltaPos = mousePos - oldMousePos;
+
+				constexpr float sensitivity = .5;
+
+				agl::Vec<float, 2> rotDelta =
+					(agl::Vec<float, 3>(deltaPos.y, -deltaPos.x, 0) * 1.2 * std::pow(sensitivity * 0.6 + 0.2, 3));
+
+				player.rot += rotDelta * PI / 180;
+
+				if (player.rot.x > PI / 2)
+				{
+					player.rot.x = PI / 2;
+				}
+				else if (player.rot.x < -PI / 2)
+				{
+
+					player.rot.x = -PI / 2;
+				}
+
+				oldMousePos = mousePos;
 
 #ifdef __linux__
-			Window win = 0;
-			int	   i   = 0;
-			XGetInputFocus(window.baseWindow.dpy, &win, &i);
-			if (win == window.baseWindow.win)
-			{
-				if ((mousePos - (windowSize / 2)).length() > std::min(windowSize.x / 2, windowSize.y / 2))
-				{
-					XWarpPointer(window.baseWindow.dpy, None, window.baseWindow.win, 0, 0, 0, 0, windowSize.x / 2,
-								 windowSize.y / 2);
-
-					oldMousePos = windowSize / 2;
-				}
-			}
-#endif
-
-#ifdef _WIN32
-			{
-				int focused = glfwGetWindowAttrib(window.baseWindow.window, GLFW_FOCUSED);
-
-				if (focused)
+				Window win = 0;
+				int	   i   = 0;
+				XGetInputFocus(window.baseWindow.dpy, &win, &i);
+				if (win == window.baseWindow.win)
 				{
 					if ((mousePos - (windowSize / 2)).length() > std::min(windowSize.x / 2, windowSize.y / 2))
 					{
-						glfwSetCursorPos(window.baseWindow.window, windowSize.x / 2, windowSize.y / 2);
+						XWarpPointer(window.baseWindow.dpy, None, window.baseWindow.win, 0, 0, 0, 0, windowSize.x / 2,
+									 windowSize.y / 2);
 
 						oldMousePos = windowSize / 2;
 					}
 				}
-			}
 #endif
+
+#ifdef _WIN32
+				{
+					int focused = glfwGetWindowAttrib(window.baseWindow.window, GLFW_FOCUSED);
+
+					if (focused)
+					{
+						if ((mousePos - (windowSize / 2)).length() > std::min(windowSize.x / 2, windowSize.y / 2))
+						{
+							glfwSetCursorPos(window.baseWindow.window, windowSize.x / 2, windowSize.y / 2);
+
+							oldMousePos = windowSize / 2;
+						}
+					}
+				}
+#endif
+			}
 
 			updateSelected(player, selected, front, world);
 
 			agl::Vec<float, 3> acc;
-			if (event.isKeyPressed(agl::Key::W))
-			{
-				acc.x += -sin(player.rot.y);
-				acc.z += -cos(player.rot.y);
-			}
-			if (event.isKeyPressed(agl::Key::A))
-			{
-				acc.x += -cos(player.rot.y);
-				acc.z += sin(player.rot.y);
-			}
-			if (event.isKeyPressed(agl::Key::S))
-			{
-				acc.x += sin(player.rot.y);
-				acc.z += cos(player.rot.y);
-			}
-			if (event.isKeyPressed(agl::Key::D))
-			{
-				acc.x += cos(player.rot.y);
-				acc.z += -sin(player.rot.y);
-			}
 
-			if (event.isKeyPressed(agl::Key::Space) && player.grounded)
+			if (windowFocus)
 			{
-				player.vel.y = 0.48 / 3;
-			}
+				if (event.isKeyPressed(agl::Key::W))
+				{
+					acc.x += -sin(player.rot.y);
+					acc.z += -cos(player.rot.y);
+				}
+				if (event.isKeyPressed(agl::Key::A))
+				{
+					acc.x += -cos(player.rot.y);
+					acc.z += sin(player.rot.y);
+				}
+				if (event.isKeyPressed(agl::Key::S))
+				{
+					acc.x += sin(player.rot.y);
+					acc.z += cos(player.rot.y);
+				}
+				if (event.isKeyPressed(agl::Key::D))
+				{
+					acc.x += cos(player.rot.y);
+					acc.z += -sin(player.rot.y);
+				}
 
-			if (event.isKeyPressed(agl::Key::LeftShift))
-			{
-				player.sprinting = true;
-			}
-			else
-			{
-				player.sprinting = false;
-			}
+				if (event.isKeyPressed(agl::Key::Space) && player.grounded)
+				{
+					player.vel.y = 0.48 / 3;
+				}
 
-			if (event.isKeyPressed(agl::Key::Num1))
-			{
-				player.currentPallete = 0;
-			}
-			if (event.isKeyPressed(agl::Key::Num2))
-			{
-				player.currentPallete = 1;
-			}
-			if (event.isKeyPressed(agl::Key::Num3))
-			{
-				player.currentPallete = 2;
-			}
-			if (event.isKeyPressed(agl::Key::Num4))
-			{
-				player.currentPallete = 3;
-			}
-			if (event.isKeyPressed(agl::Key::Num5))
-			{
-				player.currentPallete = 4;
-			}
-			if (event.isKeyPressed(agl::Key::Num6))
-			{
-				player.currentPallete = 5;
-			}
-			if (event.isKeyPressed(agl::Key::Num7))
-			{
-				player.currentPallete = 6;
-			}
-			if (event.isKeyPressed(agl::Key::Num8))
-			{
-				player.currentPallete = 7;
-			}
-			if (event.isKeyPressed(agl::Key::Num8))
-			{
-				player.currentPallete = 8;
-			}
-			if (event.isKeyPressed(agl::Key::Num9))
-			{
-				player.currentPallete = 9;
+				if (event.isKeyPressed(agl::Key::LeftShift))
+				{
+					player.sprinting = true;
+				}
+				else
+				{
+					player.sprinting = false;
+				}
+
+				if (event.isKeyPressed(agl::Key::Num1))
+				{
+					player.currentPallete = 0;
+				}
+				if (event.isKeyPressed(agl::Key::Num2))
+				{
+					player.currentPallete = 1;
+				}
+				if (event.isKeyPressed(agl::Key::Num3))
+				{
+					player.currentPallete = 2;
+				}
+				if (event.isKeyPressed(agl::Key::Num4))
+				{
+					player.currentPallete = 3;
+				}
+				if (event.isKeyPressed(agl::Key::Num5))
+				{
+					player.currentPallete = 4;
+				}
+				if (event.isKeyPressed(agl::Key::Num6))
+				{
+					player.currentPallete = 5;
+				}
+				if (event.isKeyPressed(agl::Key::Num7))
+				{
+					player.currentPallete = 6;
+				}
+				if (event.isKeyPressed(agl::Key::Num8))
+				{
+					player.currentPallete = 7;
+				}
+				if (event.isKeyPressed(agl::Key::Num8))
+				{
+					player.currentPallete = 8;
+				}
+				if (event.isKeyPressed(agl::Key::Num9))
+				{
+					player.currentPallete = 9;
+				}
 			}
 
 			player.grounded = false;
 
 			movePlayer(player, acc, world);
 
-			lclis.update(event.isPointerButtonPressed(agl::Button::Left));
-			rclis.update(event.isPointerButtonPressed(agl::Button::Right));
-
-			if (rclis.ls == ListenState::First && !(front == player.pos))
+			if (windowFocus)
 			{
-				world.setBlock(front, BlockData{(unsigned int)player.pallete[player.currentPallete]});
+				lclis.update(event.isPointerButtonPressed(agl::Button::Left));
+				rclis.update(event.isPointerButtonPressed(agl::Button::Right));
 
-				for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
+				if (rclis.ls == ListenState::First && !(front == player.pos))
 				{
-					if (it->pos == agl::Vec{front.x / 16, 0, front.z / 16})
+					world.setBlock(front, BlockData{(unsigned int)player.pallete[player.currentPallete]});
+
+					for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
 					{
-						it->update = true;
-						break;
+						if (it->pos == agl::Vec{front.x / 16, 0, front.z / 16})
+						{
+							it->update = true;
+							break;
+						}
 					}
 				}
-			}
-			if (lclis.ls == ListenState::First && gamestate)
-			{
-				world.setBlock(selected, BlockData{(unsigned int)world.air});
-
-				for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
+				if (lclis.ls == ListenState::First && gamestate)
 				{
-					if (it->pos == agl::Vec{selected.x / 16, 0, selected.z / 16})
+					world.setBlock(selected, BlockData{(unsigned int)world.air});
+
+					for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
 					{
-						it->update = true;
-						break;
+						if (it->pos == agl::Vec{selected.x / 16, 0, selected.z / 16})
+						{
+							it->update = true;
+							break;
+						}
 					}
 				}
-			}
 
-			if (event.isKeyPressed(agl::Key::T))
-			{
-				gamestate = GameState::CMD;
+				if (event.isKeyPressed(agl::Key::T))
+				{
+					gamestate = GameState::CMD;
+				}
 			}
 		}
 		else if (gamestate == GameState::CMD)
 		{
-			if (event.isKeyPressed(agl::Key::Escape))
+			if (windowFocus)
 			{
-				gamestate = GameState::RUNNING;
-			}
-			else
-			{
-				cmdBox.update(event.keybuffer);
+				if (event.isKeyPressed(agl::Key::Escape))
+				{
+					gamestate = GameState::RUNNING;
+				}
+				else
+				{
+					cmdBox.update(event.keybuffer);
+				}
 			}
 		}
 		else if (gamestate == GameState::PAUSE)

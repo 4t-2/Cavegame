@@ -51,7 +51,9 @@ struct ChunkMesh
 		bool			 baked	= false;
 		bool			 update = false;
 
-		std::vector<float> posList;
+		std::vector<float> posBuffer;
+		std::vector<float> UVBuffer;
+		std::vector<float> lightBuffer;
 
 		ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 3> chunkPos);
 
@@ -64,12 +66,16 @@ struct ChunkMesh
 		{
 			if (!baked)
 			{
-				mesh.genBuffers(1);
-				mesh.setMode(GL_LINES_ADJACENCY);
-				mesh.setVertexAmount(posList.size() / 4);
-				mesh.setBufferData(0, &posList[0], 4);
+				mesh.genBuffers(3);
+				mesh.setMode(GL_TRIANGLES);
+				mesh.setVertexAmount(posBuffer.size() / 3);
+				mesh.setBufferData(0, &posBuffer[0], 3);
+				mesh.setBufferData(1, &UVBuffer[0], 2);
+				mesh.setBufferData(2, &lightBuffer[0], 3);
 
-				posList.clear();
+				posBuffer.clear();
+				UVBuffer.clear();
+				lightBuffer.clear();
 
 				baked = true;
 			}

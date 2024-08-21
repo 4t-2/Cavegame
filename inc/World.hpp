@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <list>
 
-#define MAXHEIGHT 384 
+#define MAXHEIGHT 384
 #define MINHEIGHT 0
 
 // class ChunkGrid
@@ -140,7 +140,7 @@ template <typename T> class OcTree
 class SegStack
 {
 	public:
-		bool													  same[16];
+		/*bool													  same[16];*/
 		std::array<std::array<std::array<BlockData, 16>, 16>, 16> buffer;
 
 		void setup(BlockData &bd, int size)
@@ -150,22 +150,22 @@ class SegStack
 		{
 			buffer[pos.x][pos.y][pos.z] = bd;
 
-			for (int x = 0; x < 16; x++)
-			{
-				for (int z = 0; z < 16; z++)
-				{
-					if (!(buffer[x][pos.y][z] == bd))
-					{
-						goto nope;
-					}
-				}
-			}
-
-			same[pos.y] = true;
-
-		nope:;
-
-			same[pos.y] = false;
+		/*	bool good = true;*/
+		/*	;*/
+		/**/
+		/*	for (int x = 0; x < 16; x++)*/
+		/*	{*/
+		/*		for (int z = 0; z < 16; z++)*/
+		/*		{*/
+		/*			if (!(buffer[x][pos.y][z] == bd))*/
+		/*			{*/
+		/*				good = false;*/
+		/*				goto nope;*/
+		/*			}*/
+		/*		}*/
+		/*	}*/
+		/*nope:;*/
+		/*	same[pos.y] = good;*/
 		}
 		BlockData getValue(agl::Vec<int, 3> pos)
 		{
