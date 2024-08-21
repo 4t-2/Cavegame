@@ -107,7 +107,8 @@ void buildThread(WorldMesh &wm, bool &closeThread)
 
 ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 3> chunkPos) : pos(chunkPos)
 {
-	auto			 start		 = std::chrono::high_resolution_clock::now();
+	Timer t;
+	t.start();
 	agl::Vec<int, 3> chunkPosBig = chunkPos * 16;
 
 	ChunkRaw &chunk = world.loadedChunks[chunkPos];
@@ -133,15 +134,15 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 		world.createChunk(chunkPos + agl::Vec<int, 3>{0, 0, -1});
 	}
 
-	for (int x = 0; x < 16; x++)
+	for (int y = MINHEIGHT; y < MAXHEIGHT; y++)
 	{
-		for (int y = MINHEIGHT; y < MAXHEIGHT; y++)
+		for (int x = 0; x < 16; x++)
 		{
 			for (int z = 0; z < 16; z++)
 			{
 				agl::Vec<float, 3> pos = agl::Vec<int, 3>{x, y, z};
 
-				auto &block = chunk.get(pos);
+				auto block = chunk.get(pos);
 
 				if (block.type == world.air)
 				{
@@ -154,11 +155,11 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 		unsigned int	 id;                                                                      \
 		if (inRange(offset.x, 0, 15) && inRange(offset.y, 0, 384) && inRange(offset.z, 0, 15))    \
 		{                                                                                         \
-			id = chunk.blocks[offset.x][offset.y][offset.z].type;                                 \
+			id = chunk.get(offset).type;                                                          \
 		}                                                                                         \
 		else                                                                                      \
 		{                                                                                         \
-			id = world.getBlock(chunkPosBig + offset).type;                                                 \
+			id = world.getBlock(chunkPosBig + offset).type;                                       \
 		}                                                                                         \
 		blockMap.data[X][Y][Z] = (id == world.air || id == world.leaves || !blockDefs[id].solid); \
 	}
@@ -344,11 +345,10 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 			}
 		}
 	}
-	auto end = std::chrono::high_resolution_clock::now();
 
-	// std::cout << "build took " <<
-	// std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-	// << '\n';
+	t.stop();
+
+	std::cout << "build took " << t.get() << '\n';
 }
 
 unsigned int AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int, 3> acc1, agl::Vec<int, 3> acc2,

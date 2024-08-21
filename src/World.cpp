@@ -319,13 +319,13 @@ void World::createChunk(agl::Vec<int, 3> chunkPos)
 			{
 				if (y <= 62 + 64)
 				{
-					cr.blocks[x][y][z].type = blue_wool;
+					cr.set({x, y, z}, BlockData{blue_wool});
 				}
 				else if (y <= height)
 				{
-					if((con / 3) < .105)
+					if ((con / 3) < .105)
 					{
-						cr.blocks[x][y][z].type = sand;
+						cr.set({x, y, z}, BlockData{sand});
 						continue;
 					}
 
@@ -334,23 +334,25 @@ void World::createChunk(agl::Vec<int, 3> chunkPos)
 					{
 						if (y > 64 + 62 + 20)
 						{
-							cr.blocks[x][y][z].type = snow;
-						} else {
-							cr.blocks[x][y][z].type = grass;
+							cr.set({x, y, z}, BlockData{snow});
+						}
+						else
+						{
+							cr.set({x, y, z}, BlockData{grass});
 						}
 					}
 					else if (diff > 1)
 					{
-						cr.blocks[x][y][z].type = stone;
+						cr.set({x, y, z}, BlockData{stone});
 					}
 					else
 					{
-						cr.blocks[x][y][z].type = dirt;
+						cr.set({x, y, z}, BlockData{dirt});
 					}
 				}
 				else
 				{
-					cr.blocks[x][y][z].type = air;
+					cr.set({x, y, z}, BlockData{air});
 				}
 			}
 		}

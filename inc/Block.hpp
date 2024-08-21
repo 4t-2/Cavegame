@@ -35,6 +35,11 @@ struct AmOcCache
 struct BlockData
 {
 		unsigned int type;
+
+		bool operator==(const BlockData bd) const
+		{
+			return type == bd.type;
+		}
 };
 
 struct Grid3

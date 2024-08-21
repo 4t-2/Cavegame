@@ -4,8 +4,8 @@
 #include <filesystem>
 #include <list>
 
-#define MAXHEIGHT 180
-#define MINHEIGHT 100
+#define MAXHEIGHT 384 
+#define MINHEIGHT 0
 
 // class ChunkGrid
 // {
@@ -36,14 +36,16 @@ namespace std
 	};
 } // namespace std
 
+#define ACCESSNODE(x, y, z) node[(x * 4) + (y * 2) + z]
+
 template <typename T> class OcTree
 {
 	public:
-		int size;
+		int size = 0;
 
 		T value;
 
-		OcTree<T> ***node;
+		OcTree<T> *node = nullptr;
 
 		OcTree()
 		{
@@ -57,10 +59,12 @@ template <typename T> class OcTree
 		~OcTree()
 		{
 			delete[] node;
+			node = nullptr;
 		}
 
 		void setup(T &startVal, int size)
 		{
+			node	   = nullptr;
 			value	   = startVal;
 			this->size = size;
 		}
@@ -75,65 +79,142 @@ template <typename T> class OcTree
 			{
 				if (node == nullptr)
 				{
-					node = new OcTree[2][2][2];
+					node = new OcTree<T>[8];
 
-					node[0][0][0].setup(value, size / 2);
-					node[0][0][1].setup(value, size / 2);
-					node[0][1][0].setup(value, size / 2);
-					node[0][1][1].setup(value, size / 2);
-					node[1][0][0].setup(value, size / 2);
-					node[1][0][1].setup(value, size / 2);
-					node[1][1][0].setup(value, size / 2);
-					node[1][1][1].setup(value, size / 2);
+					node[0].setup(value, size / 2);
+					node[1].setup(value, size / 2);
+					node[2].setup(value, size / 2);
+					node[3].setup(value, size / 2);
+					node[4].setup(value, size / 2);
+					node[5].setup(value, size / 2);
+					node[6].setup(value, size / 2);
+					node[7].setup(value, size / 2);
 				}
 
-				int x = (pos.x + 1) <= (size / 2);
-				int y = (pos.y + 1) <= (size / 2);
-				int z = (pos.z + 1) <= (size / 2);
+				int x = (pos.x + 1) > (size / 2);
+				int y = (pos.y + 1) > (size / 2);
+				int z = (pos.z + 1) > (size / 2);
 
-				T value = node[x][y][z]->setValue(
+				ACCESSNODE(x, y, z).setValue(
 					{pos.x - ((size / 2) * -x), pos.y - ((size / 2) * -y), pos.z - ((size / 2) * -z)}, newValue);
 
-				if (node[0][0][0] == node[0][0][1] && node[0][0][1] == node[0][1][0] &&
-					node[0][1][0] == node[0][1][1] && node[0][1][1] == node[1][0][0] &&
-					node[1][0][0] == node[1][0][1] && node[1][0][1] == node[1][1][0] && node[1][1][0] == node[1][1][1])
+				if (node[0].node == nullptr && node[1].node == nullptr && node[2].node == nullptr &&
+					node[3].node == nullptr && node[4].node == nullptr && node[5].node == nullptr &&
+					node[6].node == nullptr && node[7].node == nullptr)
 				{
-					value = node;
-					delete[] node;
+					if (node[0].value == node[1].value && node[1].value == node[2].value &&
+						node[2].value == node[3].value && node[3].value == node[4].value &&
+						node[4].value == node[5].value && node[5].value == node[6].value &&
+						node[6].value == node[7].value)
+					{
+						value = ACCESSNODE(0, 0, 0).value;
+						delete[] node;
+						node = nullptr;
+					}
 				}
 			}
 		}
 
 		T getValue(agl::Vec<int, 3> pos)
 		{
-			if (node != nullptr)
+			std::cout << size << " " << node << '\n';
+			if (node == nullptr)
 			{
+				std::cout << "null" << '\n';
 				return value;
 			}
 			else
 			{
-				int x = (pos.x + 1) <= (size / 2);
-				int y = (pos.y + 1) <= (size / 2);
-				int z = (pos.z + 1) <= (size / 2);
+				int x = (pos.x + 1) > (size / 2);
+				int y = (pos.y + 1) > (size / 2);
+				int z = (pos.z + 1) > (size / 2);
 
-				return node[x][y][z]->getValue(
-					{pos.x - ((size / 2) * -x), pos.y - ((size / 2) * -y), pos.z - ((size / 2) * -z)});
+				return ACCESSNODE(x, y, z).getValue(
+					{pos.x - ((size / 2) * x), pos.y - ((size / 2) * y), pos.z - ((size / 2) * z)});
 			}
+		}
+};
+
+#undef ACCESSNODE
+
+class SegStack
+{
+	public:
+		bool													  same[16];
+		std::array<std::array<std::array<BlockData, 16>, 16>, 16> buffer;
+
+		void setup(BlockData &bd, int size)
+		{
+		}
+		void setValue(agl::Vec<int, 3> pos, BlockData &bd)
+		{
+			buffer[pos.x][pos.y][pos.z] = bd;
+
+			for (int x = 0; x < 16; x++)
+			{
+				for (int z = 0; z < 16; z++)
+				{
+					if (!(buffer[x][pos.y][z] == bd))
+					{
+						goto nope;
+					}
+				}
+			}
+
+			same[pos.y] = true;
+
+		nope:;
+
+			same[pos.y] = false;
+		}
+		BlockData getValue(agl::Vec<int, 3> pos)
+		{
+			return buffer[pos.x][pos.y][pos.z];
 		}
 };
 
 struct ChunkRaw
 {
-		BlockData blocks[16][384][16];
+		std::array<SegStack, 24> blocks;
 
-		BlockData &get(agl::Vec<int, 3> v)
+		ChunkRaw()
 		{
-			return blocks[v.x][v.y][v.z];
+			BlockData bd = {42};
+
+			blocks[0].setup(bd, 16);
+			blocks[1].setup(bd, 16);
+			blocks[2].setup(bd, 16);
+			blocks[3].setup(bd, 16);
+			blocks[4].setup(bd, 16);
+			blocks[5].setup(bd, 16);
+			blocks[6].setup(bd, 16);
+			blocks[7].setup(bd, 16);
+			blocks[8].setup(bd, 16);
+			blocks[9].setup(bd, 16);
+			blocks[10].setup(bd, 16);
+			blocks[11].setup(bd, 16);
+			blocks[12].setup(bd, 16);
+			blocks[13].setup(bd, 16);
+			blocks[14].setup(bd, 16);
+			blocks[15].setup(bd, 16);
+			blocks[16].setup(bd, 16);
+			blocks[17].setup(bd, 16);
+			blocks[18].setup(bd, 16);
+			blocks[19].setup(bd, 16);
+			blocks[20].setup(bd, 16);
+			blocks[21].setup(bd, 16);
+			blocks[22].setup(bd, 16);
+			blocks[23].setup(bd, 16);
 		}
 
-		void set(agl::Vec<int, 3> v, BlockData &block)
+		BlockData get(agl::Vec<int, 3> v)
 		{
-			blocks[v.x][v.y][v.z] = block;
+			return blocks[(v.y) / 16].getValue({v.x, v.y % 16, v.z});
+		}
+
+		void set(agl::Vec<int, 3> v, BlockData block)
+		{
+			blocks[(v.y) / 16].setValue({v.x, v.y % 16, v.z}, block);
 		}
 };
 
@@ -242,12 +323,13 @@ class World
 			chunkPos.x = pos.x >> 4;
 			chunkPos.y = pos.y / 384;
 			chunkPos.z = pos.z >> 4;
-			
+
 			if (loadedChunks.count(chunkPos) == 0 || pos.y < 0)
 			{
 				return;
 			}
 
-			loadedChunks[chunkPos].set(pos - agl::Vec<int, 3>{chunkPos.x * 16, chunkPos.y * 384, chunkPos.z * 16}, data);
+			loadedChunks[chunkPos].set(pos - agl::Vec<int, 3>{chunkPos.x * 16, chunkPos.y * 384, chunkPos.z * 16},
+									   data);
 		}
 };
