@@ -162,64 +162,11 @@ struct Element
 			COOLSHIT(west)
 		}
 
-		inline void addPoints(agl::Vec<float, 3> pos, agl::Vec<float, 3> size, agl::Vec<float, 3> rot,
-							  std::vector<float> &posBuffer)
-		{
-			agl::Mat4f tranlation;
-			tranlation.translate(pos);
-			agl::Mat4f scale;
-			scale.scale(size);
-			agl::Mat4f rotation;
-			rotation.rotate(rot);
-
-			agl::Mat4f transform = tranlation * rotation * scale;
-
-			agl::Vec<float, 3> pos00 = transform * agl::Vec<float, 4>{0, 0, 0, 1};
-			agl::Vec<float, 3> pos10 = transform * agl::Vec<float, 4>{1, 0, 0, 1};
-			agl::Vec<float, 3> pos01 = transform * agl::Vec<float, 4>{0, 1, 0, 1};
-			agl::Vec<float, 3> pos11 = transform * agl::Vec<float, 4>{1, 1, 0, 1};
-
-			posBuffer.push_back(pos00.x);
-			posBuffer.push_back(pos00.y);
-			posBuffer.push_back(pos00.z);
-			posBuffer.push_back(pos10.x);
-			posBuffer.push_back(pos10.y);
-			posBuffer.push_back(pos10.z);
-			posBuffer.push_back(pos01.x);
-			posBuffer.push_back(pos01.y);
-			posBuffer.push_back(pos01.z);
-
-			posBuffer.push_back(pos10.x);
-			posBuffer.push_back(pos10.y);
-			posBuffer.push_back(pos10.z);
-			posBuffer.push_back(pos01.x);
-			posBuffer.push_back(pos01.y);
-			posBuffer.push_back(pos01.z);
-			posBuffer.push_back(pos11.x);
-			posBuffer.push_back(pos11.y);
-			posBuffer.push_back(pos11.z);
-		}
-
-		void addUV(std::vector<float> &UVBuffer, agl::Vec<int, 2> uv)
-		{
-			UVBuffer.push_back((float)uv.x / 512);
-			UVBuffer.push_back((float)uv.y / 512);
-			UVBuffer.push_back((float)uv.x / 512 + (16. / 512.));
-			UVBuffer.push_back((float)uv.y / 512);
-			UVBuffer.push_back((float)uv.x / 512);
-			UVBuffer.push_back((float)uv.y / 512 + (16. / 512.));
-
-			UVBuffer.push_back((float)uv.x / 512 + (16. / 512.));
-			UVBuffer.push_back((float)uv.y / 512);
-			UVBuffer.push_back((float)uv.x / 512);
-			UVBuffer.push_back((float)uv.y / 512 + (16. / 512.));
-			UVBuffer.push_back((float)uv.x / 512 + (16. / 512.));
-			UVBuffer.push_back((float)uv.y / 512 + (16. / 512.));
-		}
-
 		void draw(Exposed &exposed, AmOcCache &aoc, std::vector<float> &posBuffer, std::vector<float> &UVBuffer,
 				  std::vector<float> &lightBuffer, agl::Vec<float, 3> pos)
 		{
+			pos += offset;
+
 			// y+
 			if (up.exists && !(exposed.up == false && up.cull == true))
 			{
@@ -252,7 +199,19 @@ struct Element
 				posBuffer.push_back(pos.y + size.y);
 				posBuffer.push_back(pos.z + size.z);
 
-				addUV(UVBuffer, up.uv);
+				UVBuffer.push_back((float)up.uv.x / 512);
+				UVBuffer.push_back((float)up.uv.y / 512);
+				UVBuffer.push_back((float)up.uv.x / 512 + (up.size.x / 512.));
+				UVBuffer.push_back((float)up.uv.y / 512);
+				UVBuffer.push_back((float)up.uv.x / 512);
+				UVBuffer.push_back((float)up.uv.y / 512 + (up.size.y / 512.));
+
+				UVBuffer.push_back((float)up.uv.x / 512 + (up.size.x / 512.));
+				UVBuffer.push_back((float)up.uv.y / 512);
+				UVBuffer.push_back((float)up.uv.x / 512);
+				UVBuffer.push_back((float)up.uv.y / 512 + (up.size.y / 512.));
+				UVBuffer.push_back((float)up.uv.x / 512 + (up.size.x / 512.));
+				UVBuffer.push_back((float)up.uv.y / 512 + (up.size.y / 512.));
 
 				lightBuffer.push_back((1 - (aoc.up.x0y0 * .2)) * col.x);
 				lightBuffer.push_back((1 - (aoc.up.x0y0 * .2)) * col.y);
@@ -298,7 +257,7 @@ struct Element
 				posBuffer.push_back(pos.y);
 				posBuffer.push_back(pos.z);
 				posBuffer.push_back(pos.x);
-				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.y);
 				posBuffer.push_back(pos.z + size.z);
 
 				posBuffer.push_back(pos.x + size.x);
@@ -311,23 +270,19 @@ struct Element
 				posBuffer.push_back(pos.y);
 				posBuffer.push_back(pos.z + size.z);
 
-				addUV(UVBuffer, down.uv);
+				UVBuffer.push_back((float)down.uv.x / 512);
+				UVBuffer.push_back((float)down.uv.y / 512 + (down.size.y / 512.));
+				UVBuffer.push_back((float)down.uv.x / 512 + (down.size.x / 512.));
+				UVBuffer.push_back((float)down.uv.y / 512 + (down.size.y / 512.));
+				UVBuffer.push_back((float)down.uv.x / 512);
+				UVBuffer.push_back((float)down.uv.y / 512);
 
-				lightBuffer.push_back((1 - (aoc.down.x0y0 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.down.x0y0 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.down.x0y0 * .2)) * col.z);
-
-				lightBuffer.push_back((1 - (aoc.down.x1y0 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.down.x1y0 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.down.x1y0 * .2)) * col.z);
-
-				lightBuffer.push_back((1 - (aoc.down.x0y1 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.down.x0y1 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.down.x0y1 * .2)) * col.z);
-
-				lightBuffer.push_back((1 - (aoc.down.x1y0 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.down.x1y0 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.down.x1y0 * .2)) * col.z);
+				UVBuffer.push_back((float)down.uv.x / 512 + (down.size.x / 512.));
+				UVBuffer.push_back((float)down.uv.y / 512 + (down.size.y / 512.));
+				UVBuffer.push_back((float)down.uv.x / 512);
+				UVBuffer.push_back((float)down.uv.y / 512);
+				UVBuffer.push_back((float)down.uv.x / 512 + (down.size.x / 512.));
+				UVBuffer.push_back((float)down.uv.y / 512);
 
 				lightBuffer.push_back((1 - (aoc.down.x0y1 * .2)) * col.x);
 				lightBuffer.push_back((1 - (aoc.down.x0y1 * .2)) * col.y);
@@ -336,6 +291,22 @@ struct Element
 				lightBuffer.push_back((1 - (aoc.down.x1y1 * .2)) * col.x);
 				lightBuffer.push_back((1 - (aoc.down.x1y1 * .2)) * col.y);
 				lightBuffer.push_back((1 - (aoc.down.x1y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.down.x0y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.down.x0y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.down.x0y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.down.x1y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.down.x1y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.down.x1y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.down.x0y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.down.x0y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.down.x0y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.down.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.down.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.down.x1y0 * .2)) * col.z);
 			}
 
 			// z-
@@ -350,32 +321,63 @@ struct Element
 							  .normalized();
 				}
 
-				addPoints({pos.x + size.x, pos.y + size.y, pos.z}, {-size.x, -size.y, 0}, {0, 0, 0}, posBuffer);
-				addUV(UVBuffer, south.uv);
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z);
 
-				lightBuffer.push_back((1 - (aoc.south.x0y0 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.south.x0y0 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.south.x0y0 * .2)) * col.z);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z);
 
-				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.z);
+				UVBuffer.push_back((float)south.uv.x / 512 + (south.size.x / 512.));
+				UVBuffer.push_back((float)south.uv.y / 512 + (south.size.y / 512.));
+				UVBuffer.push_back((float)south.uv.x / 512);
+				UVBuffer.push_back((float)south.uv.y / 512 + (south.size.y / 512.));
+				UVBuffer.push_back((float)south.uv.x / 512 + (south.size.x / 512.));
+				UVBuffer.push_back((float)south.uv.y / 512);
 
-				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.z);
-
-				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.z);
-
-				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.z);
+				UVBuffer.push_back((float)south.uv.x / 512);
+				UVBuffer.push_back((float)south.uv.y / 512 + (south.size.y / 512.));
+				UVBuffer.push_back((float)south.uv.x / 512 + (south.size.x / 512.));
+				UVBuffer.push_back((float)south.uv.y / 512);
+				UVBuffer.push_back((float)south.uv.x / 512);
+				UVBuffer.push_back((float)south.uv.y / 512);
 
 				lightBuffer.push_back((1 - (aoc.south.x1y1 * .2)) * col.x);
 				lightBuffer.push_back((1 - (aoc.south.x1y1 * .2)) * col.y);
 				lightBuffer.push_back((1 - (aoc.south.x1y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.south.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.south.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.south.x0y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.south.x0y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.south.x0y0 * .2)) * col.z);
 			}
 
 			// z+
@@ -390,24 +392,39 @@ struct Element
 							  .normalized();
 				}
 
-				addPoints({pos.x, pos.y + size.y, pos.z + size.z}, {size.x, -size.y, 0}, {0, 0, 0}, posBuffer);
-				addUV(UVBuffer, north.uv);
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z + size.z);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z + size.z);
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z + size.z);
 
-				lightBuffer.push_back((1 - (aoc.north.x0y0 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.north.x0y0 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.north.x0y0 * .2)) * col.z);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z + size.z);
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z + size.z);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z + size.z);
 
-				lightBuffer.push_back((1 - (aoc.north.x1y0 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.north.x1y0 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.north.x1y0 * .2)) * col.z);
+				UVBuffer.push_back((float)north.uv.x / 512);
+				UVBuffer.push_back((float)north.uv.y / 512 + (north.size.y / 512.));
+				UVBuffer.push_back((float)north.uv.x / 512 + (north.size.x / 512.));
+				UVBuffer.push_back((float)north.uv.y / 512 + (north.size.y / 512.));
+				UVBuffer.push_back((float)north.uv.x / 512);
+				UVBuffer.push_back((float)north.uv.y / 512);
 
-				lightBuffer.push_back((1 - (aoc.north.x0y1 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.north.x0y1 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.north.x0y1 * .2)) * col.z);
-
-				lightBuffer.push_back((1 - (aoc.north.x1y0 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.north.x1y0 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.north.x1y0 * .2)) * col.z);
+				UVBuffer.push_back((float)north.uv.x / 512 + (north.size.x / 512.));
+				UVBuffer.push_back((float)north.uv.y / 512 + (north.size.y / 512.));
+				UVBuffer.push_back((float)north.uv.x / 512);
+				UVBuffer.push_back((float)north.uv.y / 512);
+				UVBuffer.push_back((float)north.uv.x / 512 + (north.size.x / 512.));
+				UVBuffer.push_back((float)north.uv.y / 512);
 
 				lightBuffer.push_back((1 - (aoc.north.x0y1 * .2)) * col.x);
 				lightBuffer.push_back((1 - (aoc.north.x0y1 * .2)) * col.y);
@@ -416,6 +433,22 @@ struct Element
 				lightBuffer.push_back((1 - (aoc.north.x1y1 * .2)) * col.x);
 				lightBuffer.push_back((1 - (aoc.north.x1y1 * .2)) * col.y);
 				lightBuffer.push_back((1 - (aoc.north.x1y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.north.x0y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.north.x0y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.north.x0y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.north.x1y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.north.x1y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.north.x1y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.north.x0y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.north.x0y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.north.x0y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.north.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.north.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.north.x1y0 * .2)) * col.z);
 			}
 
 			// x-
@@ -430,33 +463,78 @@ struct Element
 							  .normalized();
 				}
 
-				addPoints({pos.x, pos.y + size.y, pos.z}, {size.z, -size.y}, {0, 90, 0}, posBuffer);
-				addUV(UVBuffer, west.uv);
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z + size.z);
+
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z + size.z);
+				posBuffer.push_back(pos.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z + size.z);
+
+				UVBuffer.push_back((float)west.uv.x / 512);
+				UVBuffer.push_back((float)west.uv.y / 512 + (west.size.y / 512.));
+				UVBuffer.push_back((float)west.uv.x / 512);
+				UVBuffer.push_back((float)west.uv.y / 512);
+				UVBuffer.push_back((float)west.uv.x / 512 + (west.size.x / 512.));
+				UVBuffer.push_back((float)west.uv.y / 512 + (west.size.y / 512.));
+
+				UVBuffer.push_back((float)west.uv.x / 512);
+				UVBuffer.push_back((float)west.uv.y / 512);
+				UVBuffer.push_back((float)west.uv.x / 512 + (west.size.x / 512.));
+				UVBuffer.push_back((float)west.uv.y / 512 + (west.size.y / 512.));
+				UVBuffer.push_back((float)west.uv.x / 512 + (west.size.x / 512.));
+				UVBuffer.push_back((float)west.uv.y / 512);
+
+				lightBuffer.push_back((1 - (aoc.west.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.west.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.west.x0y1 * .2)) * col.z);
 
 				lightBuffer.push_back((1 - (aoc.west.x0y0 * .2)) * col.x);
 				lightBuffer.push_back((1 - (aoc.west.x0y0 * .2)) * col.y);
 				lightBuffer.push_back((1 - (aoc.west.x0y0 * .2)) * col.z);
 
-				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.z);
+				lightBuffer.push_back((1 - (aoc.west.x1y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.west.x1y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.west.x1y1 * .2)) * col.z);
 
-				lightBuffer.push_back((1 - (aoc.west.x0y1 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.west.x0y1 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.west.x0y1 * .2)) * col.z);
-
-				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.z);
-
-				lightBuffer.push_back((1 - (aoc.west.x0y1 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.west.x0y1 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.west.x0y1 * .2)) * col.z);
+				lightBuffer.push_back((1 - (aoc.west.x0y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.west.x0y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.west.x0y0 * .2)) * col.z);
 
 				lightBuffer.push_back((1 - (aoc.west.x1y1 * .2)) * col.x);
 				lightBuffer.push_back((1 - (aoc.west.x1y1 * .2)) * col.y);
 				lightBuffer.push_back((1 - (aoc.west.x1y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.z);
 			}
+
+
+
+
+		// NOTE - The UV offset (16. / 512.) follows the aoc offset
+
+
+
+
+
+
+
+
+
 
 			// x+
 			if (east.exists && !(exposed.east == false && east.cull == true))
@@ -470,33 +548,63 @@ struct Element
 							  .normalized();
 				}
 
-				addPoints({pos.x + size.x, pos.y + size.y, pos.z + size.z}, {-size.z, -size.y, 0}, {0, 90, 0},
-						  posBuffer);
-				addUV(UVBuffer, east.uv);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z + size.z);
 
-				lightBuffer.push_back((1 - (aoc.east.x0y0 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.east.x0y0 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.east.x0y0 * .2)) * col.z);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y);
+				posBuffer.push_back(pos.z + size.z);
+				posBuffer.push_back(pos.x + size.x);
+				posBuffer.push_back(pos.y + size.y);
+				posBuffer.push_back(pos.z + size.z);
 
-				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.z);
+				UVBuffer.push_back((float)east.uv.x / 512 + (east.size.x / 512.));
+				UVBuffer.push_back((float)east.uv.y / 512 + (east.size.y / 512.));
+				UVBuffer.push_back((float)east.uv.x / 512 + (east.size.x / 512.));
+				UVBuffer.push_back((float)east.uv.y / 512);
+				UVBuffer.push_back((float)east.uv.x / 512);
+				UVBuffer.push_back((float)east.uv.y / 512 + (east.size.y / 512.));
 
-				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.z);
-
-				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.z);
-
-				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.x);
-				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.y);
-				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.z);
+				UVBuffer.push_back((float)east.uv.x / 512 + (east.size.x / 512.));
+				UVBuffer.push_back((float)east.uv.y / 512);
+				UVBuffer.push_back((float)east.uv.x / 512);
+				UVBuffer.push_back((float)east.uv.y / 512 + (east.size.y / 512.));
+				UVBuffer.push_back((float)east.uv.x / 512);
+				UVBuffer.push_back((float)east.uv.y / 512);
 
 				lightBuffer.push_back((1 - (aoc.east.x1y1 * .2)) * col.x);
 				lightBuffer.push_back((1 - (aoc.east.x1y1 * .2)) * col.y);
 				lightBuffer.push_back((1 - (aoc.east.x1y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.east.x1y0 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.east.x0y1 * .2)) * col.z);
+
+				lightBuffer.push_back((1 - (aoc.east.x0y0 * .2)) * col.x);
+				lightBuffer.push_back((1 - (aoc.east.x0y0 * .2)) * col.y);
+				lightBuffer.push_back((1 - (aoc.east.x0y0 * .2)) * col.z);
 			}
 		}
 };

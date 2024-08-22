@@ -1033,7 +1033,7 @@ int main()
 
 		agl::Vec<int, 3> chunkPos = player.pos / 16;
 		chunkPos.y				  = 0;
-		// std::cout << chunkPos << '\n';
+		std::cout << player.pos << '\n';
 
 		currentFrame++;
 	}

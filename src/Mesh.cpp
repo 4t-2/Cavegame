@@ -298,7 +298,7 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 
 	t.stop();
 
-	std::cout << "build took " << t.get() << '\n';
+	/*std::cout << "build took " << t.get() << '\n';*/
 }
 
 unsigned int AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int, 3> acc1, agl::Vec<int, 3> acc2,
