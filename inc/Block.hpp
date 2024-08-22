@@ -35,11 +35,14 @@ struct AmOcCache
 struct BlockData
 {
 		unsigned int type;
-
-		bool operator==(const BlockData bd) const
-		{
-			return type == bd.type;
-		}
+		AmOcCache	 aoc;
+		Exposed		 exposed;
+		bool		 update = true;
+		/**/
+		/*bool operator==(const BlockData bd) const*/
+		/*{*/
+		/*	return type == bd.type;*/
+		/*}*/
 };
 
 struct Grid3
@@ -522,19 +525,7 @@ struct Element
 				lightBuffer.push_back((1 - (aoc.west.x1y0 * .2)) * col.z);
 			}
 
-
-
-
-		// NOTE - The UV offset (16. / 512.) follows the aoc offset
-
-
-
-
-
-
-
-
-
+			// NOTE - The UV offset (16. / 512.) follows the aoc offset
 
 			// x+
 			if (east.exists && !(exposed.east == false && east.cull == true))

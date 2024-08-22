@@ -140,7 +140,8 @@ template <typename T> class OcTree
 class SegStack
 {
 	public:
-		/*bool													  same[16];*/
+		/*bool
+		 * same[16];*/
 		std::array<std::array<std::array<BlockData, 16>, 16>, 16> buffer;
 
 		void setup(BlockData &bd, int size)
@@ -150,22 +151,22 @@ class SegStack
 		{
 			buffer[pos.x][pos.y][pos.z] = bd;
 
-		/*	bool good = true;*/
-		/*	;*/
-		/**/
-		/*	for (int x = 0; x < 16; x++)*/
-		/*	{*/
-		/*		for (int z = 0; z < 16; z++)*/
-		/*		{*/
-		/*			if (!(buffer[x][pos.y][z] == bd))*/
-		/*			{*/
-		/*				good = false;*/
-		/*				goto nope;*/
-		/*			}*/
-		/*		}*/
-		/*	}*/
-		/*nope:;*/
-		/*	same[pos.y] = good;*/
+			/*	bool good = true;*/
+			/*	;*/
+			/**/
+			/*	for (int x = 0; x < 16; x++)*/
+			/*	{*/
+			/*		for (int z = 0; z < 16; z++)*/
+			/*		{*/
+			/*			if (!(buffer[x][pos.y][z] == bd))*/
+			/*			{*/
+			/*				good = false;*/
+			/*				goto nope;*/
+			/*			}*/
+			/*		}*/
+			/*	}*/
+			/*nope:;*/
+			/*	same[pos.y] = good;*/
 		}
 		BlockData getValue(agl::Vec<int, 3> pos)
 		{
@@ -175,46 +176,21 @@ class SegStack
 
 struct ChunkRaw
 {
-		std::array<SegStack, 24> blocks;
+		bool	  meshedBefore = false;
+		BlockData blocks[16][384][16];
 
 		ChunkRaw()
 		{
-			BlockData bd = {42};
-
-			blocks[0].setup(bd, 16);
-			blocks[1].setup(bd, 16);
-			blocks[2].setup(bd, 16);
-			blocks[3].setup(bd, 16);
-			blocks[4].setup(bd, 16);
-			blocks[5].setup(bd, 16);
-			blocks[6].setup(bd, 16);
-			blocks[7].setup(bd, 16);
-			blocks[8].setup(bd, 16);
-			blocks[9].setup(bd, 16);
-			blocks[10].setup(bd, 16);
-			blocks[11].setup(bd, 16);
-			blocks[12].setup(bd, 16);
-			blocks[13].setup(bd, 16);
-			blocks[14].setup(bd, 16);
-			blocks[15].setup(bd, 16);
-			blocks[16].setup(bd, 16);
-			blocks[17].setup(bd, 16);
-			blocks[18].setup(bd, 16);
-			blocks[19].setup(bd, 16);
-			blocks[20].setup(bd, 16);
-			blocks[21].setup(bd, 16);
-			blocks[22].setup(bd, 16);
-			blocks[23].setup(bd, 16);
 		}
 
 		BlockData get(agl::Vec<int, 3> v)
 		{
-			return blocks[(v.y) / 16].getValue({v.x, v.y % 16, v.z});
+			return blocks[v.x][v.y][v.z];
 		}
 
 		void set(agl::Vec<int, 3> v, BlockData block)
 		{
-			blocks[(v.y) / 16].setValue({v.x, v.y % 16, v.z}, block);
+			blocks[v.x][v.y][v.z] = block;
 		}
 };
 
@@ -223,6 +199,7 @@ class World
 	public:
 		std::unordered_map<agl::Vec<int, 3>, ChunkRaw> loadedChunks;
 		agl::Vec<int, 3>							   size;
+		std::vector<Block>							  *blockDefs;
 		unsigned int								   air;
 		unsigned int								   cobblestone;
 		unsigned int								   leaves;

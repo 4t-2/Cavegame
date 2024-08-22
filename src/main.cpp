@@ -449,6 +449,31 @@ void toggleFullscreen(Display *display, Window window)
 	XSendEvent(display, DefaultRootWindow(display), False, SubstructureNotifyMask, &xev);
 }
 
+void save(std::string path, World &world)
+{
+	std::fstream fs(path, std::ios::out);
+
+	for (auto e : world.loadedChunks)
+	{
+		fs.write((char *)&e.first.x, 4);
+		fs.write((char *)&e.first.y, 4);
+		fs.write((char *)&e.first.z, 4);
+
+		for (int x = 0; x < 16; x++)
+		{
+			for (int y = 0; y < 16; y++)
+			{
+				for (int z = 0; z < 16; z++)
+				{
+					fs.write((char*)&e.second.blocks[x][y][z].type, 4);
+				}
+			}
+		}
+	}
+
+	fs.close();
+}
+
 int main()
 {
 	printf("Starting AGL\n");
@@ -565,6 +590,8 @@ int main()
 
 	World world;
 	world.setBasics(blockDefs);
+
+	world.blockDefs = &blockDefs;
 
 	Player player;
 
@@ -982,12 +1009,52 @@ int main()
 				{
 					world.setBlock(front, BlockData{(unsigned int)player.pallete[player.currentPallete]});
 
+					std::vector<agl::Vec<int, 3>> polluted;
+					polluted.push_back({front.x / 16, 0, front.z / 16});
+
+					if (front.x % 16 == 15)
+					{
+						polluted.push_back({polluted[0].x + 1, polluted[0].y, polluted[0].z});
+					}
+					if (front.z % 16 == 15)
+					{
+						polluted.push_back({polluted[0].x, polluted[0].y, polluted[0].z + 1});
+					}
+					if (front.x % 16 == 0)
+					{
+						polluted.push_back({polluted[0].x - 1, polluted[0].y, polluted[0].z});
+					}
+					if (front.z % 16 == 0)
+					{
+						polluted.push_back({polluted[0].x, polluted[0].y, polluted[0].z - 1});
+					}
+					if (front.x % 16 == 15 && front.z % 16 == 15)
+					{
+						polluted.push_back({polluted[0].x + 1, polluted[0].y, polluted[0].z + 1});
+					}
+					if (front.x % 16 == 0 && front.z % 16 == 15)
+					{
+						polluted.push_back({polluted[0].x - 1, polluted[0].y, polluted[0].z + 1});
+					}
+					if (front.x % 16 == 15 && front.z % 16 == 0)
+					{
+						polluted.push_back({polluted[0].x + 1, polluted[0].y, polluted[0].z - 1});
+					}
+					if (front.x % 16 == 0 && front.z % 16 == 0)
+					{
+						polluted.push_back({polluted[0].x - 1, polluted[0].y, polluted[0].z - 1});
+					}
+
 					for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
 					{
-						if (it->pos == agl::Vec{front.x / 16, 0, front.z / 16})
+						for (auto i = polluted.begin(); i != polluted.end(); i++)
 						{
-							it->update = true;
-							break;
+							if (it->pos == *i)
+							{
+								it->update = true;
+								polluted.erase(i);
+								break;
+							}
 						}
 					}
 				}
@@ -995,12 +1062,52 @@ int main()
 				{
 					world.setBlock(selected, BlockData{(unsigned int)world.air});
 
+					std::vector<agl::Vec<int, 3>> polluted;
+					polluted.push_back({selected.x / 16, 0, selected.z / 16});
+
+					if (selected.x % 16 == 15)
+					{
+						polluted.push_back({polluted[0].x + 1, polluted[0].y, polluted[0].z});
+					}
+					if (selected.z % 16 == 15)
+					{
+						polluted.push_back({polluted[0].x, polluted[0].y, polluted[0].z + 1});
+					}
+					if (selected.x % 16 == 0)
+					{
+						polluted.push_back({polluted[0].x - 1, polluted[0].y, polluted[0].z});
+					}
+					if (selected.z % 16 == 0)
+					{
+						polluted.push_back({polluted[0].x, polluted[0].y, polluted[0].z + 1});
+					}
+					if (selected.x % 16 == 15 && selected.z % 16 == 15)
+					{
+						polluted.push_back({polluted[0].x + 1, polluted[0].y, polluted[0].z + 1});
+					}
+					if (selected.x % 16 == 0 && selected.z % 16 == 15)
+					{
+						polluted.push_back({polluted[0].x - 1, polluted[0].y, polluted[0].z + 1});
+					}
+					if (selected.x % 16 == 15 && selected.z % 16 == 0)
+					{
+						polluted.push_back({polluted[0].x + 1, polluted[0].y, polluted[0].z - 1});
+					}
+					if (selected.x % 16 == 0 && selected.z % 16 == 0)
+					{
+						polluted.push_back({polluted[0].x - 1, polluted[0].y, polluted[0].z - 1});
+					}
+
 					for (auto it = wm.mesh.begin(); it != wm.mesh.end(); it++)
 					{
-						if (it->pos == agl::Vec{selected.x / 16, 0, selected.z / 16})
+						for (auto i = polluted.begin(); i != polluted.end(); i++)
 						{
-							it->update = true;
-							break;
+							if (it->pos == *i)
+							{
+								it->update = true;
+								polluted.erase(i);
+								break;
+							}
 						}
 					}
 				}
@@ -1033,7 +1140,7 @@ int main()
 
 		agl::Vec<int, 3> chunkPos = player.pos / 16;
 		chunkPos.y				  = 0;
-		std::cout << player.pos << '\n';
+		/*std::cout << player.pos << '\n';*/
 
 		currentFrame++;
 	}
@@ -1049,6 +1156,8 @@ int main()
 
 	closeThread = true;
 	thread.join();
+
+	save("test.world", world);
 
 	return 0;
 }
