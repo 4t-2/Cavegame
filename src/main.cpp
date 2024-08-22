@@ -451,6 +451,7 @@ void toggleFullscreen(Display *display, Window window)
 
 void save(std::string path, World &world)
 {
+	return;
 	std::fstream fs(path, std::ios::out);
 
 	for (auto e : world.loadedChunks)
@@ -459,13 +460,14 @@ void save(std::string path, World &world)
 		fs.write((char *)&e.first.y, 4);
 		fs.write((char *)&e.first.z, 4);
 
+		std::cout << "chunk " << e.first << '\n';
 		for (int x = 0; x < 16; x++)
 		{
-			for (int y = 0; y < 16; y++)
+			for (int y = 0; y < 385; y++)
 			{
 				for (int z = 0; z < 16; z++)
 				{
-					fs.write((char*)&e.second.blocks[x][y][z].type, 4);
+					fs.write((char *)&e.second.blocks[x][y][z].type, 4);
 				}
 			}
 		}
@@ -1009,6 +1011,30 @@ int main()
 				{
 					world.setBlock(front, BlockData{(unsigned int)player.pallete[player.currentPallete]});
 
+					for (int x = -1; x < 2; x++)
+					{
+						for (int y = -1; y < 2; y++)
+						{
+							for (int z = -1; z < 2; z++)
+							{
+								auto global = front + agl::Vec<int, 3>{x, y, z};
+								auto cpos = global / 16;
+								cpos.y = 0;
+
+								auto it = world.loadedChunks.find(cpos);
+
+								if(it == world.loadedChunks.end())
+								{
+									continue;
+								}
+
+								auto local = global - (cpos * 16);
+
+								it->second.blocks[local.x][local.y][local.z].update = true;
+							}
+						}
+					}
+
 					std::vector<agl::Vec<int, 3>> polluted;
 					polluted.push_back({front.x / 16, 0, front.z / 16});
 
@@ -1061,6 +1087,30 @@ int main()
 				if (lclis.ls == ListenState::First && gamestate)
 				{
 					world.setBlock(selected, BlockData{(unsigned int)world.air});
+
+					for (int x = -1; x < 2; x++)
+					{
+						for (int y = -1; y < 2; y++)
+						{
+							for (int z = -1; z < 2; z++)
+							{
+								auto global = selected + agl::Vec<int, 3>{x, y, z};
+								auto cpos = global / 16;
+								cpos.y = 0;
+
+								auto it = world.loadedChunks.find(cpos);
+
+								if(it == world.loadedChunks.end())
+								{
+									continue;
+								}
+
+								auto local = global - (cpos * 16);
+
+								it->second.blocks[local.x][local.y][local.z].update = true;
+							}
+						}
+					}
 
 					std::vector<agl::Vec<int, 3>> polluted;
 					polluted.push_back({selected.x / 16, 0, selected.z / 16});

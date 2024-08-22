@@ -113,22 +113,73 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 
 	ChunkRaw &chunk = world.loadedChunks[chunkPos];
 
-	if (!world.loadedChunks.count(chunkPos + agl::Vec<int, 3>{1, 0, 0}))
+	ChunkRaw *chunkMap[3][3];
+
+	auto it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{-1, 0, -1});
+	if (it == world.loadedChunks.end())
 	{
-		world.createChunk(chunkPos + agl::Vec<int, 3>{1, 0, 0});
+		world.createChunk(chunkPos + agl::Vec<int, 3>{-1, 0, -1});
+		it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{-1, 0, -1});
 	}
-	if (!world.loadedChunks.count(chunkPos + agl::Vec<int, 3>{-1, 0, 0}))
-	{
-		world.createChunk(chunkPos + agl::Vec<int, 3>{-1, 0, 0});
-	}
-	if (!world.loadedChunks.count(chunkPos + agl::Vec<int, 3>{0, 0, 1}))
-	{
-		world.createChunk(chunkPos + agl::Vec<int, 3>{0, 0, 1});
-	}
-	if (!world.loadedChunks.count(chunkPos + agl::Vec<int, 3>{0, 0, -1}))
+	chunkMap[0][0] = &it->second;
+
+	it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{0, 0, -1});
+	if (it == world.loadedChunks.end())
 	{
 		world.createChunk(chunkPos + agl::Vec<int, 3>{0, 0, -1});
+		it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{0, 0, -1});
 	}
+	chunkMap[1][0] = &it->second;
+
+	it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{1, 0, -1});
+	if (it == world.loadedChunks.end())
+	{
+		world.createChunk(chunkPos + agl::Vec<int, 3>{1, 0, -1});
+		it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{1, 0, -1});
+	}
+	chunkMap[2][0] = &it->second;
+
+	it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{-1, 0, 0});
+	if (it == world.loadedChunks.end())
+	{
+		world.createChunk(chunkPos + agl::Vec<int, 3>{-1, 0, 0});
+		it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{-1, 0, 0});
+	}
+	chunkMap[0][1] = &it->second;
+
+	chunkMap[1][1] = &chunk;
+
+	it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{1, 0, 0});
+	if (it == world.loadedChunks.end())
+	{
+		world.createChunk(chunkPos + agl::Vec<int, 3>{1, 0, 0});
+		it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{1, 0, 0});
+	}
+	chunkMap[2][1] = &it->second;
+
+	it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{-1, 0, 1});
+	if (it == world.loadedChunks.end())
+	{
+		world.createChunk(chunkPos + agl::Vec<int, 3>{-1, 0, 1});
+		it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{-1, 0, 1});
+	}
+	chunkMap[0][2] = &it->second;
+
+	it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{0, 0, 1});
+	if (it == world.loadedChunks.end())
+	{
+		world.createChunk(chunkPos + agl::Vec<int, 3>{0, 0, 1});
+		it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{0, 0, 1});
+	}
+	chunkMap[1][2] = &it->second;
+
+	it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{1, 0, 1});
+	if (it == world.loadedChunks.end())
+	{
+		world.createChunk(chunkPos + agl::Vec<int, 3>{1, 0, 1});
+		it = world.loadedChunks.find(chunkPos + agl::Vec<int, 3>{1, 0, 1});
+	}
+	chunkMap[2][2] = &it->second;
 
 	for (int y = 0; y < 384; y++)
 	{
@@ -145,13 +196,13 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 					continue;
 				}
 
-				/*if (!block.update)*/
+				if (block.update)
 				{
-					calcAOCandExposed(block, pos, chunkPosBig, world, blockDefs, chunk);
-					/*block.update = false;*/
+					calcAOCandExposed(block, pos, chunkPosBig, world, blockDefs, chunkMap);
+					block.update = false;
 				}
 
-				if (!block.exposed.nonvis)
+				if (true)
 				{
 					for (auto &e : blockDefs[block.type].elements)
 					{

@@ -121,8 +121,8 @@ class WorldMesh
 		}
 };
 
-#define RENDERDIST	3
-#define DESTROYDIST 4
+#define RENDERDIST	6
+#define DESTROYDIST 7
 
 void buildThread(WorldMesh &wm, bool &closeThread);
 
@@ -145,21 +145,46 @@ unsigned int AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int,
 					  BlockMap &map);
 
 inline void calcAOCandExposed(BlockData &bd, agl::Vec<int, 3> pos, agl::Vec<int, 3> chunkPosBig, World &world,
-							  std::vector<Block> &blockDefs, ChunkRaw &chunk)
+							  std::vector<Block> &blockDefs, ChunkRaw *chunkMap[3][3])
 {
 	BlockMap blockMap;
 
 #define MACRO(X, Y, Z)                                                                            \
 	{                                                                                             \
 		agl::Vec<int, 3> offset = agl::Vec<int, 3>{pos.x + X - 1, pos.y + Y - 1, pos.z + Z - 1};  \
-		unsigned int	 id;                                                                      \
-		if (inRange(offset.x, 0, 15) && inRange(offset.y, 0, 384) && inRange(offset.z, 0, 15))    \
+		agl::Vec<int, 3> chunkPos;                                                                \
+		if (offset.x < 0)                                                                         \
 		{                                                                                         \
-			id = chunk.get(offset).type;                                                          \
+			chunkPos.x = -1;                                                                      \
+		}                                                                                         \
+		else if (offset.x > 15)                                                                   \
+		{                                                                                         \
+			chunkPos.x = 1;                                                                       \
 		}                                                                                         \
 		else                                                                                      \
 		{                                                                                         \
-			id = world.getBlock(offset + chunkPosBig).type;                                       \
+			chunkPos.x = 0;                                                                       \
+		}                                                                                         \
+		if (offset.z < 0)                                                                         \
+		{                                                                                         \
+			chunkPos.z = -1;                                                                      \
+		}                                                                                         \
+		else if (offset.z > 15)                                                                   \
+		{                                                                                         \
+			chunkPos.z = 1;                                                                       \
+		}                                                                                         \
+		else                                                                                      \
+		{                                                                                         \
+			chunkPos.z = 0;                                                                       \
+		}                                                                                         \
+		unsigned int id;                                                                          \
+		if (inRange(offset.y, 0, 384))                                                            \
+		{                                                                                         \
+			id = chunkMap[chunkPos.x + 1][chunkPos.z + 1]->get(offset - (chunkPos * 16)).type;    \
+		}                                                                                         \
+		else                                                                                      \
+		{                                                                                         \
+			id = world.air;                                                                       \
 		}                                                                                         \
 		blockMap.data[X][Y][Z] = (id == world.air || id == world.leaves || !blockDefs[id].solid); \
 	}
@@ -280,4 +305,3 @@ inline void calcAOCandExposed(BlockData &bd, agl::Vec<int, 3> pos, agl::Vec<int,
 		bd.exposed.west = false;
 	}
 }
-
