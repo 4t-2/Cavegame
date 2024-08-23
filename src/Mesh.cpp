@@ -213,11 +213,9 @@ ChunkMesh::ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 
 		}
 	}
 
-	chunk.meshedBefore = true;
-
 	t.stop();
 
-	std::cout << "build took " << t.get() << '\n';
+	/*std::cout << "build took " << t.get() << '\n';*/
 }
 
 unsigned int AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int, 3> acc1, agl::Vec<int, 3> acc2,
@@ -242,5 +240,167 @@ unsigned int AmOcCalc(agl::Vec<int, 3> pos, agl::Vec<int, 3> norm, agl::Vec<int,
 	else
 	{
 		return 0;
+	}
+}
+
+inline void calcAOCandExposed(BlockData &bd, agl::Vec<int, 3> pos, agl::Vec<int, 3> chunkPosBig, World &world,
+							  std::vector<Block> &blockDefs, ChunkRaw *chunkMap[3][3])
+{
+	BlockMap blockMap;
+
+#define MACRO(X, Y, Z)                                                                            \
+	{                                                                                             \
+		agl::Vec<int, 3> offset = agl::Vec<int, 3>{pos.x + X - 1, pos.y + Y - 1, pos.z + Z - 1};  \
+		agl::Vec<int, 3> chunkPos;                                                                \
+		if (offset.x < 0)                                                                         \
+		{                                                                                         \
+			chunkPos.x = -1;                                                                      \
+		}                                                                                         \
+		else if (offset.x > 15)                                                                   \
+		{                                                                                         \
+			chunkPos.x = 1;                                                                       \
+		}                                                                                         \
+		else                                                                                      \
+		{                                                                                         \
+			chunkPos.x = 0;                                                                       \
+		}                                                                                         \
+		if (offset.z < 0)                                                                         \
+		{                                                                                         \
+			chunkPos.z = -1;                                                                      \
+		}                                                                                         \
+		else if (offset.z > 15)                                                                   \
+		{                                                                                         \
+			chunkPos.z = 1;                                                                       \
+		}                                                                                         \
+		else                                                                                      \
+		{                                                                                         \
+			chunkPos.z = 0;                                                                       \
+		}                                                                                         \
+		unsigned int id;                                                                          \
+		if (inRange(offset.y, 0, 383))                                                            \
+		{                                                                                         \
+			id = chunkMap[chunkPos.x + 1][chunkPos.z + 1]->get(offset - (chunkPos * 16)).type;    \
+		}                                                                                         \
+		else                                                                                      \
+		{                                                                                         \
+			id = world.air;                                                                       \
+		}                                                                                         \
+		blockMap.data[X][Y][Z] = (id == world.air || id == world.leaves || !blockDefs[id].solid); \
+	}
+
+#define MACRO2(L)       \
+	{                   \
+		MACRO(0, L, 0); \
+		MACRO(1, L, 0); \
+		MACRO(2, L, 0); \
+		MACRO(0, L, 1); \
+		MACRO(1, L, 1); \
+		MACRO(2, L, 1); \
+		MACRO(0, L, 2); \
+		MACRO(1, L, 2); \
+		MACRO(2, L, 2); \
+	}
+
+	MACRO2(0);
+	MACRO2(1);
+	MACRO2(2);
+
+#undef MACRO2
+#undef MACRO
+
+	bd.exposed.nonvis = true;
+
+	if (blockMap.data[1][2][1])
+	{
+		bd.exposed.nonvis = false;
+		bd.exposed.up	  = true;
+
+		bd.aoc.up.x0y0 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, -1}, blockMap);
+		bd.aoc.up.x1y0 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, -1}, blockMap);
+		bd.aoc.up.x0y1 = AmOcCalc(pos, {0, 1, 0}, {-1, 0, 0}, {0, 0, 1}, blockMap);
+		bd.aoc.up.x1y1 = AmOcCalc(pos, {0, 1, 0}, {1, 0, 0}, {0, 0, 1}, blockMap);
+	}
+	else
+	{
+		bd.exposed.up = false;
+	}
+
+	if (blockMap.data[1][0][1])
+	{
+		bd.exposed.nonvis = false;
+		bd.exposed.down	  = true;
+
+		bd.aoc.down.x0y0 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, 1}, blockMap);
+		bd.aoc.down.x1y0 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, 1}, blockMap);
+		bd.aoc.down.x0y1 = AmOcCalc(pos, {0, -1, 0}, {-1, 0, 0}, {0, 0, -1}, blockMap);
+		bd.aoc.down.x1y1 = AmOcCalc(pos, {0, -1, 0}, {1, 0, 0}, {0, 0, -1}, blockMap);
+	}
+	else
+	{
+		bd.exposed.down = false;
+	}
+
+	// z
+
+	if (blockMap.data[1][1][2])
+	{
+		bd.exposed.nonvis = false;
+		bd.exposed.north  = true;
+
+		bd.aoc.north.x0y0 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, 1, 0}, blockMap);
+		bd.aoc.north.x1y0 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, 1, 0}, blockMap);
+		bd.aoc.north.x0y1 = AmOcCalc(pos, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, blockMap);
+		bd.aoc.north.x1y1 = AmOcCalc(pos, {0, 0, 1}, {1, 0, 0}, {0, -1, 0}, blockMap);
+	}
+	else
+	{
+		bd.exposed.north = false;
+	}
+
+	if (blockMap.data[1][1][0])
+	{
+		bd.exposed.nonvis = false;
+		bd.exposed.south  = true;
+
+		bd.aoc.south.x0y0 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, 1, 0}, blockMap);
+		bd.aoc.south.x1y0 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, 1, 0}, blockMap);
+		bd.aoc.south.x0y1 = AmOcCalc(pos, {0, 0, -1}, {1, 0, 0}, {0, -1, 0}, blockMap);
+		bd.aoc.south.x1y1 = AmOcCalc(pos, {0, 0, -1}, {-1, 0, 0}, {0, -1, 0}, blockMap);
+	}
+	else
+	{
+		bd.exposed.south = false;
+	}
+
+	// x
+
+	if (blockMap.data[2][1][1])
+	{
+		bd.exposed.nonvis = false;
+		bd.exposed.east	  = true;
+
+		bd.aoc.east.x0y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, 1, 0}, blockMap);
+		bd.aoc.east.x1y0 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, 1, 0}, blockMap);
+		bd.aoc.east.x0y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, 1}, {0, -1, 0}, blockMap);
+		bd.aoc.east.x1y1 = AmOcCalc(pos, {1, 0, 0}, {0, 0, -1}, {0, -1, 0}, blockMap);
+	}
+	else
+	{
+		bd.exposed.east = false;
+	}
+
+	if (blockMap.data[0][1][1])
+	{
+		bd.exposed.nonvis = false;
+		bd.exposed.west	  = true;
+
+		bd.aoc.west.x0y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, 1, 0}, blockMap);
+		bd.aoc.west.x1y0 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, 1, 0}, blockMap);
+		bd.aoc.west.x0y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, -1}, {0, -1, 0}, blockMap);
+		bd.aoc.west.x1y1 = AmOcCalc(pos, {-1, 0, 0}, {0, 0, 1}, {0, -1, 0}, blockMap);
+	}
+	else
+	{
+		bd.exposed.west = false;
 	}
 }

@@ -176,7 +176,6 @@ class SegStack
 
 struct ChunkRaw
 {
-		bool	  meshedBefore = false;
 		BlockData blocks[16][384][16];
 
 		ChunkRaw()

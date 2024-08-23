@@ -264,29 +264,10 @@ void correctPositionXZ(Player &player, World &world)
 
 	// diagonal
 
-	int xoff = 0;
-	if (player.pos.x - (int)player.pos.x > .7)
+	if (!(agl::Vec<int, 3>{(player.pos.x - .3), player.pos.y, (player.pos.z - .3)} == player.pos))
 	{
-		xoff = 1;
-	}
-	else if (player.pos.x - (int)player.pos.x < .3)
-	{
-		xoff = -1;
-	}
-	int zoff = 0;
-	if (player.pos.z - (int)player.pos.z > .7)
-	{
-		zoff = 1;
-	}
-	else if (player.pos.z - (int)player.pos.z < .3)
-	{
-		zoff = -1;
-	}
-
-	if (xoff != 0 && zoff != 0)
-	{
-		int x = player.pos.x + xoff;
-		int z = player.pos.z + zoff;
+		int x = player.pos.x - 0.3;
+		int z = player.pos.z - 0.3;
 
 		for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
 		{
@@ -294,33 +275,143 @@ void correctPositionXZ(Player &player, World &world)
 			{
 				if (fabs(player.vel.x) > fabs(player.vel.z))
 				{
-					if (player.vel.x > 0 && xoff > 0)
-					{
-						player.vel.x = 0;
-						player.pos.x = x - .3;
-					}
-					else if (player.vel.x < 0 && xoff < 0)
-					{
-						player.vel.x = 0;
-						player.pos.x = x + 1.3;
-					}
+					player.vel.x = 0;
+					player.pos.x = x + 1.3;
 				}
 				else
 				{
-					if (player.vel.z > 0 && zoff > 0)
-					{
-						player.vel.z = 0;
-						player.pos.z = z - .3;
-					}
-					else if (player.vel.z < 0 && zoff < 0)
-					{
-						player.vel.z = 0;
-						player.pos.z = z + 1.3;
-					}
+					player.vel.z = 0;
+					player.pos.z = z + 1.3;
 				}
 			}
 		}
 	}
+	if (!(agl::Vec<int, 3>{(player.pos.x + 0.3), player.pos.y, (player.pos.z - .3)} == player.pos))
+	{
+		int x = player.pos.x + 0.3;
+		int z = player.pos.z - 0.3;
+
+		for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+		{
+			if (world.getAtPos({x, y, z}))
+			{
+				if (fabs(player.vel.x) > fabs(player.vel.z))
+				{
+					player.vel.x = 0;
+					player.pos.x = x - 0.3;
+				}
+				else
+				{
+					player.vel.z = 0;
+					player.pos.z = z + 1.3;
+				}
+			}
+		}
+	}
+	if (!(agl::Vec<int, 3>{(player.pos.x - .3), player.pos.y, (player.pos.z + .3)} == player.pos))
+	{
+		int x = player.pos.x - 0.3;
+		int z = player.pos.z + 0.3;
+
+		for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+		{
+			if (world.getAtPos({x, y, z}))
+			{
+				if (fabs(player.vel.x) > fabs(player.vel.z))
+				{
+					player.vel.x = 0;
+					player.pos.x = x + 1.3;
+				}
+				else
+				{
+					player.vel.z = 0;
+					player.pos.z = z - 0.3;
+				}
+			}
+		}
+	}
+	if (!(agl::Vec<int, 3>{(player.pos.x + .3), player.pos.y, (player.pos.z + .3)} == player.pos))
+	{
+		int x = player.pos.x + 0.3;
+		int z = player.pos.z + 0.3;
+
+		for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+		{
+			if (world.getAtPos({x, y, z}))
+			{
+				if (fabs(player.vel.x) > fabs(player.vel.z))
+				{
+					player.vel.x = 0;
+					player.pos.x = x - 0.3;
+				}
+				else
+				{
+					player.vel.z = 0;
+					player.pos.z = z - 0.3;
+				}
+			}
+		}
+	}
+
+	/*// diagonal*/
+	/**/
+	/*int xoff = 0;*/
+	/*if (player.pos.x - (int)player.pos.x > .7)*/
+	/*{*/
+	/*	xoff = 1;*/
+	/*}*/
+	/*else if (player.pos.x - (int)player.pos.x < .3)*/
+	/*{*/
+	/*	xoff = -1;*/
+	/*}*/
+	/*int zoff = 0;*/
+	/*if (player.pos.z - (int)player.pos.z > .7)*/
+	/*{*/
+	/*	zoff = 1;*/
+	/*}*/
+	/*else if (player.pos.z - (int)player.pos.z < .3)*/
+	/*{*/
+	/*	zoff = -1;*/
+	/*}*/
+	/**/
+	/*if (xoff != 0 && zoff != 0)*/
+	/*{*/
+	/*	int x = player.pos.x + xoff;*/
+	/*	int z = player.pos.z + zoff;*/
+	/**/
+	/*	for (int y = player.pos.y; y < player.pos.y + 1.8; y++)*/
+	/*	{*/
+	/*		if (world.getAtPos({x, y, z}))*/
+	/*		{*/
+	/*			if (fabs(player.vel.x) > fabs(player.vel.z))*/
+	/*			{*/
+	/*				if (player.vel.x > 0 && xoff > 0)*/
+	/*				{*/
+	/*					player.vel.x = 0;*/
+	/*					player.pos.x = x - .3;*/
+	/*				}*/
+	/*				else if (player.vel.x < 0 && xoff < 0)*/
+	/*				{*/
+	/*					player.vel.x = 0;*/
+	/*					player.pos.x = x + 1.3;*/
+	/*				}*/
+	/*			}*/
+	/*			else*/
+	/*			{*/
+	/*				if (player.vel.z > 0 && zoff > 0)*/
+	/*				{*/
+	/*					player.vel.z = 0;*/
+	/*					player.pos.z = z - .3;*/
+	/*				}*/
+	/*				else if (player.vel.z < 0 && zoff < 0)*/
+	/*				{*/
+	/*					player.vel.z = 0;*/
+	/*					player.pos.z = z + 1.3;*/
+	/*				}*/
+	/*			}*/
+	/*		}*/
+	/*	}*/
+	/*}*/
 }
 
 void correctPositionY(Player &player, World &world)
@@ -451,23 +542,55 @@ void toggleFullscreen(Display *display, Window window)
 
 void save(std::string path, World &world)
 {
-	return;
 	std::fstream fs(path, std::ios::out);
 
 	for (auto e : world.loadedChunks)
 	{
-		fs.write((char *)&e.first.x, 4);
-		fs.write((char *)&e.first.y, 4);
-		fs.write((char *)&e.first.z, 4);
+		fs.write(reinterpret_cast<char *>((int *)&e.first.x), sizeof(int));
+		fs.write(reinterpret_cast<char *>((int *)&e.first.y), sizeof(int));
+		fs.write(reinterpret_cast<char *>((int *)&e.first.z), sizeof(int));
 
-		std::cout << "chunk " << e.first << '\n';
 		for (int x = 0; x < 16; x++)
 		{
-			for (int y = 0; y < 385; y++)
+			for (int y = 0; y < 384; y++)
 			{
 				for (int z = 0; z < 16; z++)
 				{
-					fs.write((char *)&e.second.blocks[x][y][z].type, 4);
+					unsigned int id = e.second.blocks[x][y][z].type;
+					fs.write(reinterpret_cast<char *>(&id), sizeof(id));
+				}
+			}
+		}
+	}
+
+	fs.close();
+}
+
+void load(std::string path, World &world)
+{
+	std::fstream fs(path, std::ios::in);
+
+	while (!fs.eof())
+	{
+		int x = 0;
+		int y = 0;
+		int z = 0;
+		fs.read(reinterpret_cast<char *>(&x), sizeof(int));
+		fs.read(reinterpret_cast<char *>(&y), sizeof(int));
+		fs.read(reinterpret_cast<char *>(&z), sizeof(int));
+
+		auto &chunk = world.loadedChunks[{x, y, z}];
+
+		for (int x = 0; x < 16; x++)
+		{
+			for (int y = 0; y < 384; y++)
+			{
+				for (int z = 0; z < 16; z++)
+				{
+					unsigned int id = 0;
+					fs.read(reinterpret_cast<char *>(&id), sizeof(id));
+
+					chunk.blocks[x][y][z].type = id;
 				}
 			}
 		}
@@ -601,37 +724,6 @@ int main()
 
 	CommandBox cmdBox(blankRect, text, blank, windowSize);
 
-	cmdBox.functions = {
-		CommandFunction{"set",
-						{&blockList},
-						[&](std::vector<std::string> v) {
-							std::string &name = v[1];
-
-							if (blockNameToDef.count("minecraft:" + name) != 0)
-							{
-								player.pallete[player.currentPallete] = blockNameToDef["minecraft:" + name];
-							}
-
-							return;
-						}},
-		CommandFunction{"resetpos",
-						{&blockList},
-						[&](std::vector<std::string> v) {
-							player.pos = {16 * 16, 150, 16 * 16};
-
-							return;
-						}},
-		CommandFunction{"togglefullscreen",
-						{&blockList},
-						[&](std::vector<std::string> v) {
-							toggleFullscreen(window.baseWindow.dpy, window.baseWindow.win);
-
-							return;
-						}},
-	};
-
-	cmdBox.setCommands();
-
 	agl::Vec<int, 3> selected;
 	agl::Vec<int, 3> front;
 
@@ -649,7 +741,60 @@ int main()
 
 	bool closeThread = false;
 
-	std::thread thread(buildThread, std::ref(wm), std::ref(closeThread));
+	std::thread *thread = new std::thread(buildThread, std::ref(wm), std::ref(closeThread));
+
+	cmdBox.functions = {
+		CommandFunction{"set",
+						{&blockList},
+						[&](std::vector<std::string> v) {
+							std::string &name = v[1];
+
+							if (blockNameToDef.count("minecraft:" + name) != 0)
+							{
+								player.pallete[player.currentPallete] = blockNameToDef["minecraft:" + name];
+							}
+
+							return;
+						}},
+		CommandFunction{"resetpos",
+						{},
+						[&](std::vector<std::string> v) {
+							player.pos = {16 * 16, 150, 16 * 16};
+
+							return;
+						}},
+		CommandFunction{"togglefullscreen",
+						{},
+						[&](std::vector<std::string> v) {
+							toggleFullscreen(window.baseWindow.dpy, window.baseWindow.win);
+
+							return;
+						}},
+		CommandFunction{"save",
+						{},
+						[&](std::vector<std::string> v) {
+							save(v[1], world);
+
+							return;
+						}},
+		CommandFunction{"load",
+						{},
+						[&](std::vector<std::string> v) {
+							closeThread = true;
+							thread->join();
+							closeThread = false;
+							wm.clear();
+							world.loadedChunks.clear();
+							player.pos = {16 * 16, 150, 16 * 16};
+							load(v[1], world);
+
+							thread = new std::thread(buildThread, std::ref(wm), std::ref(closeThread));
+
+							return;
+						}},
+	};
+
+	cmdBox.setCommands();
 
 	{
 		int id = blockShader.getUniformLocation("textureSampler");
@@ -1018,12 +1163,12 @@ int main()
 							for (int z = -1; z < 2; z++)
 							{
 								auto global = front + agl::Vec<int, 3>{x, y, z};
-								auto cpos = global / 16;
-								cpos.y = 0;
+								auto cpos	= global / 16;
+								cpos.y		= 0;
 
 								auto it = world.loadedChunks.find(cpos);
 
-								if(it == world.loadedChunks.end())
+								if (it == world.loadedChunks.end())
 								{
 									continue;
 								}
@@ -1095,12 +1240,12 @@ int main()
 							for (int z = -1; z < 2; z++)
 							{
 								auto global = selected + agl::Vec<int, 3>{x, y, z};
-								auto cpos = global / 16;
-								cpos.y = 0;
+								auto cpos	= global / 16;
+								cpos.y		= 0;
 
 								auto it = world.loadedChunks.find(cpos);
 
-								if(it == world.loadedChunks.end())
+								if (it == world.loadedChunks.end())
 								{
 									continue;
 								}
@@ -1195,6 +1340,12 @@ int main()
 		currentFrame++;
 	}
 
+	closeThread = true;
+	thread->join();
+	delete thread;
+
+	wm.clear();
+
 	font.deleteFont();
 
 	blank.deleteTexture();
@@ -1204,10 +1355,7 @@ int main()
 
 	window.close();
 
-	closeThread = true;
-	thread.join();
-
-	save("test.world", world);
+	std::cout << "end" << '\n';
 
 	return 0;
 }
