@@ -66,7 +66,7 @@ struct Face
 		agl::Vec<int, 2> uv		   = {0, 0};
 		agl::Vec<int, 2> size	   = {0, 0};
 		bool			 exists	   = false;
-		Image			*tintImage = nullptr;
+		cg::Image			*tintImage = nullptr;
 		bool			 cull	   = false;
 };
 
@@ -104,7 +104,7 @@ struct Element
 		agl::Vec<float, 3> offset;
 
 		Element(Json::Value &val, std::map<std::string, agl::Vec<int, 2>> &texHash, agl::Vec<int, 2> atlasSize,
-				Image &tintGrass, Image &tintFoliage, std::string &name, bool &solid)
+				cg::Image &tintGrass, cg::Image &tintFoliage, std::string &name, bool &solid)
 		{
 			agl::Vec<float, 3> from;
 			agl::Vec<float, 3> to;
@@ -177,7 +177,7 @@ struct Element
 				if (up.tintImage != nullptr)
 				{
 					col = up.tintImage
-							  ->at({(up.tintImage->size.x - 1) - ((up.tintImage->size.x - 1) * 0.8),
+							  ->at(agl::Vec<double, 2>{(up.tintImage->size.x - 1) - ((up.tintImage->size.x - 1) * 0.8),
 									(up.tintImage->size.y - 1) * 0.4})
 							  .normalized();
 				}
@@ -248,7 +248,7 @@ struct Element
 				if (down.tintImage != nullptr)
 				{
 					col = down.tintImage
-							  ->at({(down.tintImage->size.x - 1) - ((down.tintImage->size.x - 1) * 0.8),
+							  ->at(agl::Vec<double, 2>{(down.tintImage->size.x - 1) - ((down.tintImage->size.x - 1) * 0.8),
 									(down.tintImage->size.y - 1) * 0.4})
 							  .normalized();
 				}
@@ -319,7 +319,7 @@ struct Element
 				if (south.tintImage != nullptr)
 				{
 					col = south.tintImage
-							  ->at({(south.tintImage->size.x - 1) - ((south.tintImage->size.x - 1) * 0.8),
+							  ->at(agl::Vec<double, 2>{(south.tintImage->size.x - 1) - ((south.tintImage->size.x - 1) * 0.8),
 									(south.tintImage->size.y - 1) * 0.4})
 							  .normalized();
 				}
@@ -390,7 +390,7 @@ struct Element
 				if (north.tintImage != nullptr)
 				{
 					col = north.tintImage
-							  ->at({(north.tintImage->size.x - 1) - ((north.tintImage->size.x - 1) * 0.8),
+							  ->at(agl::Vec<double, 2>{(north.tintImage->size.x - 1) - ((north.tintImage->size.x - 1) * 0.8),
 									(north.tintImage->size.y - 1) * 0.4})
 							  .normalized();
 				}
@@ -461,7 +461,7 @@ struct Element
 				if (west.tintImage != nullptr)
 				{
 					col = west.tintImage
-							  ->at({(west.tintImage->size.x - 1) - ((west.tintImage->size.x - 1) * 0.8),
+							  ->at(agl::Vec<double, 2>{(west.tintImage->size.x - 1) - ((west.tintImage->size.x - 1) * 0.8),
 									(west.tintImage->size.y - 1) * 0.4})
 							  .normalized();
 				}
@@ -534,7 +534,7 @@ struct Element
 				if (east.tintImage != nullptr)
 				{
 					col = east.tintImage
-							  ->at({(east.tintImage->size.x - 1) - ((east.tintImage->size.x - 1) * 0.8),
+							  ->at(agl::Vec<double, 2>{(east.tintImage->size.x - 1) - ((east.tintImage->size.x - 1) * 0.8),
 									(east.tintImage->size.y - 1) * 0.4})
 							  .normalized();
 				}
@@ -608,8 +608,8 @@ class Block
 		bool				 solid = false;
 		std::vector<Element> elements;
 
-		Block(Atlas &atlas, std::string name, std::map<std::string, Json::Value> &jsonPairs, Image &tintGrass,
-			  Image &tintFoliage)
+		Block(Atlas &atlas, std::string name, std::map<std::string, Json::Value> &jsonPairs, cg::Image &tintGrass,
+			  cg::Image &tintFoliage)
 		{
 			this->name = name;
 
@@ -682,11 +682,6 @@ class Block
 			{
 				elements.emplace_back(val, texHash, atlas.size, tintGrass, tintFoliage, name, solid);
 			}
-		}
-
-		void render(agl::RenderWindow &window, agl::Shape &blankRect, agl::Vec<int, 3> pos, int id, AOUnfiforms aou,
-					BlockData &bd)
-		{
 		}
 
 		~Block()

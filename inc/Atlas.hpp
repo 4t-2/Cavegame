@@ -1,10 +1,10 @@
 #pragma once
 
-#include <AXIS/ax.hpp>
+#include <Viz/viz.hpp>
+#include <Vec.hpp>
 #include <filesystem>
-#include <fstream>
 #include <json/json.h>
-#include AGL_STB_IMAGE_INC
+#include <stb_image.h>
 
 #include <map>
 
@@ -13,6 +13,8 @@ static int dimtorange(agl::Vec<int, 2> dim, agl::Vec<int, 2> size, int period)
 	return dim.x * period + (dim.y * size.x * period);
 }
 
+namespace cg
+{
 class Image
 {
 	public:
@@ -34,6 +36,7 @@ class Image
 			stbi_image_free((char *)data);
 		}
 };
+}
 
 template<typename T>
 std::string FUCKWINDOWS(const T* input) {
@@ -51,13 +54,13 @@ std::string FUCKWINDOWS(const T* input) {
 class Atlas
 {
 	public:
-		agl::Texture texture;
+		Image texture;
 
 		agl::Vec<int, 2> size;
 
 		std::map<std::string, agl::Vec<int, 2>> blockMap;
 
-		Atlas(std::string path)
+		Atlas(std::string path, Instance *instance)
 		{
 			std::vector<std::pair<unsigned char *, std::string>> blocks;
 
@@ -86,8 +89,7 @@ class Atlas
 
 			int sq = 1;
 
-			for (; sq < exact; sq *= 2)
-				;
+			for (; sq < exact; sq *= 2);
 
 			std::vector<unsigned char> finalTex;
 			finalTex.resize(sq * sq * 4);
@@ -100,7 +102,7 @@ class Atlas
 				{
 					for (int y = 0; y < 16; y++)
 					{
-						int texI					   = dimtorange(agl::Vec{x, y} + offset, {sq, sq}, 4);
+						int texI					   = dimtorange(agl::Vec<int, 2>{x, y} + offset, {sq, sq}, 4);
 						int blcI					   = dimtorange({x, y}, {16, 16}, 4);
 						*(agl::Color *)&finalTex[texI] = *(agl::Color *)&blocks[i].first[blcI];
 					}
@@ -118,11 +120,7 @@ class Atlas
 				stbi_image_free(blocks[i].first);
 			}
 
-			texture.genTexture();
-			texture.bind(texture);
-			texture.setImage(GL_RGBA, GL_RGBA, {sq, sq}, &finalTex[0]);
-			agl::Texture::setParameter(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			agl::Texture::setParameter(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			texture = instance->createImage(sq, sq, &finalTex[0]);
 
 			this->size = {sq, sq};
 		}

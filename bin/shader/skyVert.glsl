@@ -1,14 +1,19 @@
-#version 330 core
+#version 450
 
-layout(location = 0) in vec3 position;
+layout(set=0,binding=0) readonly buffer Vertex
+{
+	vec4 position[];
+};
 
-uniform mat4 transform;
-uniform mat4 mvp;
+layout(set=1,binding=0) uniform Transform
+{
+	mat4 transform;
+};
 
-out vec4 pos;
+layout(location=0) out vec4 pos;
 
 void main()
 {
-	pos = mvp * transform * vec4(position, 1);
+	pos = transform * position[gl_VertexIndex];
     gl_Position = pos;
 }

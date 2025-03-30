@@ -1,5 +1,3 @@
-#include <AXIS/ax.hpp>
-
 #include <cctype>
 #include <chrono>
 #include <cmath>
@@ -8,16 +6,17 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
+#include <glm/ext/matrix_clip_space.hpp>
+#include <imgui.h>
 #include <math.h>
 #include <string>
 #include <thread>
+#include <vulkan/vulkan_core.h>
 
-#include "../inc/Atlas.hpp"
-#include "../inc/Block.hpp"
-#include "../inc/CommandBox.hpp"
+#include <Mat.hpp>
+/*#include "../inc/CommandBox.hpp"*/
 #include "../inc/Mesh.hpp"
 #include "../inc/Serializer.hpp"
-#include "../inc/World.hpp"
 
 // b5d1ff
 
@@ -28,6 +27,75 @@
 #define BASESPEED WALKVELPERTICK
 
 #define FOREACH(x) for (int index = 0; index < x.size(); index++)
+
+class FancyDescriptor
+{
+	public:
+		Descriptor descriptor;
+		Buffer	   buffer;
+		bool free;
+};
+
+class DescriptorAllocator
+{
+	public:
+		int				 bufferSize;
+		int poolSize = 100;
+		DescriptorPool	 pool;
+		DescriptorLayout *layout;
+		Instance *instance;
+
+		std::vector<FancyDescriptor> allocated;
+
+		DescriptorAllocator(Instance &instance, DescriptorLayout &layout, int bufferSize)
+		{
+			this->layout = &layout;
+			this->instance = &instance;
+			this->bufferSize = bufferSize;
+
+			assert(layout.type == DescriptorLayout::Type::UNIFORM_BUFFER);
+
+			pool = instance.createDescriptorPool(poolSize, 0, 0, 0, 0, 0, 0, poolSize, 0, 0, 0, 0);
+
+			allocated.resize(poolSize);
+
+			for(auto &e: allocated)
+			{
+				e.buffer = instance.createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, Instance::BufferAccess::CPUGPU);
+				e.descriptor = pool.createDescriptor(layout, &e.buffer, nullptr, nullptr);
+				e.free = true;
+			}
+		}
+
+		FancyDescriptor* allocate()
+		{
+			for(auto &e: allocated)
+			{
+				if(e.free)
+				{
+					e.free = false;
+					return &e;
+				}
+			}
+
+			return nullptr;
+		}
+		
+		void destroy(FancyDescriptor *f)
+		{
+			f->free = true;
+		}
+};
+
+agl::Vec<int, 2> getPointerPos(Window &win)
+{
+	double x;
+	double y;
+
+	glfwGetCursorPos(win.window, &x, &y);
+
+	return {x, y};
+}
 
 enum GameState
 {
@@ -124,7 +192,7 @@ class Player
 		int currentPallete = 0;
 		int pallete[9];
 
-		agl::Vec<float, 3> pos = {16 * 16, 150, 16 * 16};
+		agl::Vec<float, 3> pos = {0, 200, 0};
 		agl::Vec<float, 3> rot = {0, PI / 2, 0};
 		agl::Vec<float, 3> vel = {0, 0, 0};
 
@@ -139,25 +207,25 @@ class Player
 		}
 };
 
-void hideCursor(agl::RenderWindow &window)
+void hideCursor(Window &window)
 {
-#ifdef __linux__
-	Cursor		invisibleCursor;
-	Pixmap		bitmapNoData;
-	XColor		black;
-	static char noData[] = {0, 0, 0, 0, 0, 0, 0, 0};
-	black.red = black.green = black.blue = 0;
-
-	bitmapNoData	= XCreateBitmapFromData(window.baseWindow.dpy, window.baseWindow.win, noData, 8, 8);
-	invisibleCursor = XCreatePixmapCursor(window.baseWindow.dpy, bitmapNoData, bitmapNoData, &black, &black, 0, 0);
-	XDefineCursor(window.baseWindow.dpy, window.baseWindow.win, invisibleCursor);
-	XFreeCursor(window.baseWindow.dpy, invisibleCursor);
-	XFreePixmap(window.baseWindow.dpy, bitmapNoData);
-#endif
-
-#ifdef _WIN32
-	glfwSetInputMode(window.baseWindow.window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
-#endif
+/*#ifdef __linux__*/
+/*	Cursor		invisibleCursor;*/
+/*	Pixmap		bitmapNoData;*/
+/*	XColor		black;*/
+/*	static char noData[] = {0, 0, 0, 0, 0, 0, 0, 0};*/
+/*	black.red = black.green = black.blue = 0;*/
+/**/
+/*	bitmapNoData	= XCreateBitmapFromData(window.baseWindow.dpy, window.baseWindow.win, noData, 8, 8);*/
+/*	invisibleCursor = XCreatePixmapCursor(window.baseWindow.dpy, bitmapNoData, bitmapNoData, &black, &black, 0, 0);*/
+/*	XDefineCursor(window.baseWindow.dpy, window.baseWindow.win, invisibleCursor);*/
+/*	XFreeCursor(window.baseWindow.dpy, invisibleCursor);*/
+/*	XFreePixmap(window.baseWindow.dpy, bitmapNoData);*/
+/*#endif*/
+/**/
+/*#ifdef _WIN32*/
+	glfwSetInputMode(window.window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+/*#endif*/
 }
 
 struct Collision
@@ -264,7 +332,7 @@ void correctPositionXZ(Player &player, World &world)
 
 	// diagonal
 
-	if (!(agl::Vec<int, 3>{(player.pos.x - .3), player.pos.y, (player.pos.z - .3)} == player.pos))
+	if (!(agl::Vec<int, 3>{int(player.pos.x - .3), (int)player.pos.y, int(player.pos.z - .3)} == player.pos))
 	{
 		int x = player.pos.x - 0.3;
 		int z = player.pos.z - 0.3;
@@ -286,7 +354,7 @@ void correctPositionXZ(Player &player, World &world)
 			}
 		}
 	}
-	if (!(agl::Vec<int, 3>{(player.pos.x + 0.3), player.pos.y, (player.pos.z - .3)} == player.pos))
+	if (!(agl::Vec<int, 3>{int(player.pos.x + 0.3), (int)player.pos.y, int(player.pos.z - .3)} == player.pos))
 	{
 		int x = player.pos.x + 0.3;
 		int z = player.pos.z - 0.3;
@@ -308,7 +376,7 @@ void correctPositionXZ(Player &player, World &world)
 			}
 		}
 	}
-	if (!(agl::Vec<int, 3>{(player.pos.x - .3), player.pos.y, (player.pos.z + .3)} == player.pos))
+	if (!(agl::Vec<int, 3>{int(player.pos.x - .3), (int)player.pos.y, (int)(player.pos.z + .3)} == player.pos))
 	{
 		int x = player.pos.x - 0.3;
 		int z = player.pos.z + 0.3;
@@ -330,7 +398,7 @@ void correctPositionXZ(Player &player, World &world)
 			}
 		}
 	}
-	if (!(agl::Vec<int, 3>{(player.pos.x + .3), player.pos.y, (player.pos.z + .3)} == player.pos))
+	if (!(agl::Vec<int, 3>{(int)(player.pos.x + .3), (int)player.pos.y, (int)(player.pos.z + .3)} == player.pos))
 	{
 		int x = player.pos.x + 0.3;
 		int z = player.pos.z + 0.3;
@@ -523,22 +591,22 @@ void updateSelected(Player &player, agl::Vec<int, 3> &selected, agl::Vec<int, 3>
 	}
 }
 
-void toggleFullscreen(Display *display, Window window)
-{
-	Atom wmState	= XInternAtom(display, "_NET_WM_STATE", False);
-	Atom fullscreen = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False);
-
-	XEvent xev				 = {0};
-	xev.type				 = ClientMessage;
-	xev.xclient.window		 = window;
-	xev.xclient.message_type = wmState;
-	xev.xclient.format		 = 32;
-	xev.xclient.data.l[0]	 = 2; // _NET_WM_STATE_ADD
-	xev.xclient.data.l[1]	 = fullscreen;
-	xev.xclient.data.l[2]	 = 0; // no second property to toggle
-
-	XSendEvent(display, DefaultRootWindow(display), False, SubstructureNotifyMask, &xev);
-}
+/*void toggleFullscreen(Display *display, Window window)*/
+/*{*/
+	/*Atom wmState	= XInternAtom(display, "_NET_WM_STATE", False);*/
+	/*Atom fullscreen = XInternAtom(display, "_NET_WM_STATE_FULLSCREEN", False);*/
+	/**/
+	/*XEvent xev				 = {0};*/
+	/*xev.type				 = ClientMessage;*/
+	/*xev.xclient.window		 = window;*/
+	/*xev.xclient.message_type = wmState;*/
+	/*xev.xclient.format		 = 32;*/
+	/*xev.xclient.data.l[0]	 = 2; // _NET_WM_STATE_ADD*/
+	/*xev.xclient.data.l[1]	 = fullscreen;*/
+	/*xev.xclient.data.l[2]	 = 0; // no second property to toggle*/
+	/**/
+	/*XSendEvent(display, DefaultRootWindow(display), False, SubstructureNotifyMask, &xev);*/
+/*}*/
 
 void save(std::string path, World &world)
 {
@@ -603,57 +671,113 @@ int main()
 {
 	printf("Starting AGL\n");
 
-#ifdef _WIN32
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-#endif
-
-	agl::RenderWindow window;
-	window.setup({1920, 1080}, "CaveGame");
-	// window.setClearColor({0x78, 0xA7, 0xFF});
-	window.setClearColor(agl::Color::Black);
+	Instance instance;
+	glfwInit();
+	instance.bootstrap(1);
+	Window window = instance.createWindow(1920, 1080, "CaveGame", true);
 
 	agl::Vec<int, 2> windowSize;
 
-	window.GLEnable(GL_ALPHA_TEST);
-	glAlphaFunc(GL_GREATER, 0.1f);
-
-	glDepthFunc(GL_LEQUAL);
-
-	window.setSwapInterval(1);
-
-	agl::Event event;
-	event.setWindow(window);
-
 	std::cout << "Shader Compilation" << '\n';
 
-	ax::Program blockShader(ax::Shader("./shader/blockVert.glsl", GL_VERTEX_SHADER),
-							ax::Shader("./shader/blockFrag.glsl", GL_FRAGMENT_SHADER));
+	DescriptorPool genericDescriptorPool = instance.createDescriptorPool(100);
 
-	ax::Program uiShader(ax::Shader("./shader/frag.glsl", GL_FRAGMENT_SHADER),
-						 ax::Shader("./shader/uivert.glsl", GL_VERTEX_SHADER));
 
-	ax::Program skyShader(ax::Shader("./shader/skyFrag.glsl", GL_FRAGMENT_SHADER),
-						  ax::Shader("./shader/skyVert.glsl", GL_VERTEX_SHADER));
+	std::vector<glm::vec4> triangleData = {
+		{0, 1, 0, 1}, 
+		{1, 0, 0, 1}, 
+		{0, 0, 0, 1},
+	};
+
+	std::vector<glm::vec4> unitSquareData = {
+		{0, 0, 0, 1},
+		{1, 0, 0, 1},
+		{0, 1, 0, 1},
+		{1, 0, 0, 1},
+		{0, 1, 0, 1},
+		{1, 1, 0, 1}
+	};
+
+	Buffer triangleBuffer = instance.createBufferWrite(unitSquareData, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+
+	Buffer unitSquareBuffer = instance.createBufferWrite(unitSquareData, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+
+	/*ax::Program blockShader(ax::Shader("./shader/blockVert.glsl", GL_VERTEX_SHADER),*/
+	/*						ax::Shader("./shader/blockFrag.glsl", GL_FRAGMENT_SHADER));*/
+	/**/
+	/*ax::Program uiShader(ax::Shader("./shader/frag.glsl", GL_FRAGMENT_SHADER),*/
+	/*					 ax::Shader("./shader/uivert.glsl", GL_VERTEX_SHADER));*/
+
+	struct {
+		DescriptorLayout vertex;
+		DescriptorLayout mvp;
+		DescriptorLayout textureSampler;
+	} blockShaderLayout = {
+		instance.createLayout(0, DescriptorLayout::Type::STORAGE_BUFFER, DescriptorLayout::Stage::VERTEX),
+		instance.createLayout(0, DescriptorLayout::Type::UNIFORM_BUFFER, DescriptorLayout::Stage::VERTEX),
+		instance.createLayout(0, DescriptorLayout::Type::COMBINED_IMAGE_SAMPLER, DescriptorLayout::Stage::FRAGMENT),
+	};
+
+	Buffer mvpBuffer = instance.createBuffer(sizeof(glm::mat4), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, Instance::BufferAccess::CPUGPU);
+	Descriptor mvpDescriptor = genericDescriptorPool.createDescriptor(blockShaderLayout.mvp, &mvpBuffer, nullptr, nullptr);
+
+	Pipeline blockShader = instance.createGraphicsPipeline("./shader/blockVert.spv", "./shader/blockFrag.spv", {blockShaderLayout.vertex.layout, blockShaderLayout.mvp.layout, blockShaderLayout.textureSampler.layout}, window.renderPass);
+
+	DescriptorLayout skyShaderVertex = instance.createLayout(0, DescriptorLayout::STORAGE_BUFFER, DescriptorLayout::Stage::VERTEX);
+	DescriptorLayout skyShaderTransform = instance.createLayout(0, DescriptorLayout::UNIFORM_BUFFER, DescriptorLayout::Stage::VERTEX);
+	DescriptorLayout skyShaderData= instance.createLayout(0, DescriptorLayout::UNIFORM_BUFFER, DescriptorLayout::Stage::VERTEX);
+
+	Pipeline skyShaderPipeline = instance.createGraphicsPipeline("./shader/skyVert.spv", "./shader/skyFrag.spv", {skyShaderVertex.layout, skyShaderTransform.layout, skyShaderData.layout}, window.renderPass);
+
+	Descriptor skyShaderVertexDescriptor = genericDescriptorPool.createDescriptor(skyShaderVertex, &unitSquareBuffer, nullptr, nullptr);
+
+	struct {
+		glm::mat4 transform;
+	} transformData;
+
+	Buffer transformBuffer = instance.createBuffer(sizeof(transformData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, Instance::BufferAccess::CPUGPU);
+	Descriptor transformDesc = genericDescriptorPool.createDescriptor(skyShaderTransform, &transformBuffer, nullptr, nullptr);
+
+	struct {
+		float time;
+		float rotx;
+		float roty;
+	} shaderData;
+
+	DescriptorLayout layout1 =
+		instance.createLayout(0, DescriptorLayout::Type::STORAGE_BUFFER, DescriptorLayout::Stage::VERTEX);
+
+	Descriptor desc1 = genericDescriptorPool.createDescriptor(layout1, &triangleBuffer, nullptr, nullptr);
+
+	Pipeline trianglePipeline=
+		instance.createGraphicsPipeline("./shader/triangleVert.spv", "./shader/triangleFrag.spv", {layout1.layout}, window.renderPass);
+
+	Buffer shaderBuffer = instance.createBuffer(sizeof(shaderData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, Instance::BufferAccess::CPUGPU);
+	Descriptor shaderDesc = genericDescriptorPool.createDescriptor(skyShaderData, &shaderBuffer, nullptr, nullptr);
 
 	std::cout << "Loading Assets And Textures" << '\n';
 
-	Atlas atlas("./resources/java/assets/minecraft/textures/block/");
+	Atlas atlas("./resources/java/assets/minecraft/textures/block/", &instance);
 
-	Image tintTextureGrass;
+	Sampler sampler = instance.createSampler(VK_FILTER_NEAREST);
+
+	Descriptor textureSamplerDescriptor = genericDescriptorPool.createDescriptor(blockShaderLayout.textureSampler, nullptr, &atlas.texture, &sampler);
+
+	cg::Image tintTextureGrass;
 	tintTextureGrass.load("./resources/java/assets/minecraft/textures/colormap/grass.png");
 
-	Image tintTextureFoliage;
+	cg::Image tintTextureFoliage;
 	tintTextureFoliage.load("./resources/java/assets/minecraft/textures/colormap/foliage.png");
 
 	std::vector<Block>		   blockDefs;
 	std::map<std::string, int> blockNameToDef;
 	std::vector<std::string>   blockList;
 
-	agl::Texture blank;
-	blank.setBlank();
-
-	agl::Font font;
-	font.setup("./font/font.ttf", 24);
+	/*agl::Texture blank;*/
+	/*blank.setBlank();*/
+	/**/
+	/*agl::Font font;*/
+	/*font.setup("./font/font.ttf", 24);*/
 
 	std::cout << "Loading Config" << '\n';
 
@@ -664,7 +788,7 @@ int main()
 		recurse(Input(fs), config, "config");
 	}
 
-	window.setFPS(config.fpsCap);
+	/*window.setFPS(config.fpsCap);*/
 
 	recurse(Output(std::cout), config, "config");
 
@@ -707,11 +831,11 @@ int main()
 
 	std::cout << "Misc Work" << '\n';
 
-	agl::Rectangle blankRect;
-	blankRect.setTexture(&blank);
+	/*agl::Rectangle blankRect;*/
+	/*blankRect.setTexture(&blank);*/
 
-	MCText text(blankRect);
-	text.scale = 2;
+	/*MCText text(blankRect);*/
+	/*text.scale = 2;*/
 
 	World world;
 	world.setBasics(blockDefs);
@@ -722,7 +846,7 @@ int main()
 
 	GameState gamestate = GameState::RUNNING;
 
-	CommandBox cmdBox(blankRect, text, blank, windowSize);
+	/*CommandBox cmdBox(blankRect, text, blank, windowSize);*/
 
 	agl::Vec<int, 3> selected;
 	agl::Vec<int, 3> front;
@@ -743,64 +867,64 @@ int main()
 
 	std::thread *thread = new std::thread(buildThread, std::ref(wm), std::ref(closeThread));
 
-	cmdBox.functions = {
-		CommandFunction{"set",
-						{&blockList},
-						[&](std::vector<std::string> v) {
-							std::string &name = v[1];
+	/*cmdBox.functions = {*/
+	/*	CommandFunction{"set",*/
+	/*					{&blockList},*/
+	/*					[&](std::vector<std::string> v) {*/
+	/*						std::string &name = v[1];*/
+	/**/
+	/*						if (blockNameToDef.count("minecraft:" + name) != 0)*/
+	/*						{*/
+	/*							player.pallete[player.currentPallete] = blockNameToDef["minecraft:" + name];*/
+	/*						}*/
+	/**/
+	/*						return;*/
+	/*					}},*/
+	/*	CommandFunction{"resetpos",*/
+	/*					{},*/
+	/*					[&](std::vector<std::string> v) {*/
+	/*						player.pos = {16 * 16, 150, 16 * 16};*/
+	/**/
+	/*						return;*/
+	/*					}},*/
+	/*	CommandFunction{"togglefullscreen",*/
+	/*					{},*/
+	/*					[&](std::vector<std::string> v) {*/
+	/*						toggleFullscreen(window.baseWindow.dpy, window.baseWindow.win);*/
+	/**/
+	/*						return;*/
+	/*					}},*/
+	/*	CommandFunction{"save",*/
+	/*					{},*/
+	/*					[&](std::vector<std::string> v) {*/
+	/*						save(v[1], world);*/
+	/**/
+	/*						return;*/
+	/*					}},*/
+	/*	CommandFunction{"load",*/
+	/*					{},*/
+	/*					[&](std::vector<std::string> v) {*/
+	/*						closeThread = true;*/
+	/*						thread->join();*/
+	/*						closeThread = false;*/
+	/*						wm.clear();*/
+	/*						world.loadedChunks.clear();*/
+	/*						player.pos = {16 * 16, 150, 16 * 16};*/
+	/*						load(v[1], world);*/
+	/**/
+	/*						thread = new std::thread(buildThread, std::ref(wm), std::ref(closeThread));*/
+	/**/
+	/*						return;*/
+	/*					}},*/
+	/*};*/
+	/**/
+	/*cmdBox.setCommands();*/
 
-							if (blockNameToDef.count("minecraft:" + name) != 0)
-							{
-								player.pallete[player.currentPallete] = blockNameToDef["minecraft:" + name];
-							}
-
-							return;
-						}},
-		CommandFunction{"resetpos",
-						{},
-						[&](std::vector<std::string> v) {
-							player.pos = {16 * 16, 150, 16 * 16};
-
-							return;
-						}},
-		CommandFunction{"togglefullscreen",
-						{},
-						[&](std::vector<std::string> v) {
-							toggleFullscreen(window.baseWindow.dpy, window.baseWindow.win);
-
-							return;
-						}},
-		CommandFunction{"save",
-						{},
-						[&](std::vector<std::string> v) {
-							save(v[1], world);
-
-							return;
-						}},
-		CommandFunction{"load",
-						{},
-						[&](std::vector<std::string> v) {
-							closeThread = true;
-							thread->join();
-							closeThread = false;
-							wm.clear();
-							world.loadedChunks.clear();
-							player.pos = {16 * 16, 150, 16 * 16};
-							load(v[1], world);
-
-							thread = new std::thread(buildThread, std::ref(wm), std::ref(closeThread));
-
-							return;
-						}},
-	};
-
-	cmdBox.setCommands();
-
-	{
-		int id = blockShader.getUniformLocation("textureSampler");
-
-		glUniform1i(id, 0);
-	}
+	/*{*/
+	/*	int id = blockShader.getUniformLocation("textureSampler");*/
+	/**/
+	/*	glUniform1i(id, 0);*/
+	/*}*/
 
 	std::cout << "entering" << '\n';
 
@@ -808,14 +932,14 @@ int main()
 
 	bool windowFocus = true;
 
-	while (!event.windowClose())
+	while (!window.shouldClose())
 	{
 		{
-			int	   revert = 0;
-			Window win;
-			XGetInputFocus(window.baseWindow.dpy, &win, &revert);
-
-			windowFocus = win == window.baseWindow.win;
+			/*int	   revert = 0;*/
+			/*Window win;*/
+			/*XGetInputFocus(window.baseWindow.dpy, &win, &revert);*/
+			/**/
+			/*windowFocus = win == window.baseWindow.win;*/
 		}
 
 		if (config.showFps)
@@ -828,172 +952,146 @@ int main()
 		static int milliDiff = 0;
 		int		   start	 = getMillisecond();
 
-		event.poll();
+		glfwPollEvents();
 
-		windowSize = window.getState().size;
+		window.getFrameBufferSize(&windowSize.x, &windowSize.y);
 
-		window.clear();
+		window.startDraw();
 
-		{
+		/*{*/
 			{
-				agl::Mat4f proj;
-				agl::Mat4f trans;
-				proj.ortho(0, windowSize.x, windowSize.y, 0, 0.1, 100);
-				trans.lookAt({0, 0, 10}, {0, 0, 0}, {0, 1, 0});
+				transformData.transform = glm::translate(glm::mat4(1), {-1, -1, 0.999}) * glm::scale(glm::mat4(1), {2, 2, 1});
 
-				skyShader.use();
-				window.getShaderUniforms(skyShader);
-				window.updateMvp(proj * trans);
+				shaderData.time = currentFrame;
+				shaderData.rotx = player.rot.x;
+				shaderData.roty = player.rot.y;
 
-				int id = skyShader.getUniformLocation("time");
-				skyShader.setUniform(id, currentFrame);
-				id = skyShader.getUniformLocation("rotx");
-				skyShader.setUniform(id, player.rot.x);
-				id = skyShader.getUniformLocation("roty");
-				skyShader.setUniform(id, player.rot.y);
+				transformBuffer.singleCopy(&transformData);
+				shaderBuffer.singleCopy(&shaderData);
 
-				blankRect.setSize(windowSize);
-				blankRect.setPosition({0, 0, 0});
-
-				glDisable(GL_DEPTH_TEST);
-
-				window.drawShape(blankRect);
-
-				glEnable(GL_DEPTH_TEST);
+				window.draw(6, {skyShaderVertexDescriptor, transformDesc, shaderDesc}, skyShaderPipeline);
 			}
 
-			blockShader.use();
-			window.getShaderUniforms(blockShader);
 			{
-				agl::Mat<float, 4> tran;
-				tran.translate(player.pos * -1 - agl::Vec{0.f, 1.62f, 0.f});
+				auto offset = player.pos * -1 - agl::Vec{0.f, 1.62f, 0.f};
+				glm::mat4 tran = glm::translate(glm::mat4(1), {offset.x, offset.y, offset.z});
 
-				agl::Mat<float, 4> rot;
-				rot.rotate({agl::radianToDegree(player.rot.x), agl::radianToDegree(player.rot.y),
-							agl::radianToDegree(player.rot.z)});
+				glm::mat4 rot = glm::rotate(glm::mat4(1), -player.rot.x, {1, 0, 0}) * glm::rotate(glm::mat4(1), -player.rot.y, {0, 1, 0});// * glm::rotate<float>(glm::mat4(1), PI, {0, 0, 1});
 
-				agl::Mat<float, 4> proj;
-				proj.perspective(PI / 2, (float)windowSize.x / windowSize.y, 0.1, 10000);
+				glm::mat4 proj = glm::perspectiveRH_ZO<float>(PI / 2, (float)windowSize.x / windowSize.y, 0.1, 10000);
 
-				window.updateMvp(proj * rot * tran);
+				glm::mat4 mvp =  proj * rot * glm::scale(glm::mat4(1), {1, -1, 1}) * tran;
 
-				/*int id = worldShader.getUniformLocation("time");*/
-				/*worldShader.setUniform(id, currentFrame);*/
-				/*id = worldShader.getUniformLocation("rotx");*/
-				/*worldShader.setUniform(id, player.rot.x);*/
-				/*id = worldShader.getUniformLocation("roty");*/
-				/*worldShader.setUniform(id, player.rot.y);*/
+				mvpBuffer.singleCopy(&mvp);
 			}
-
-			glActiveTexture(GL_TEXTURE0);
-			agl::Texture::bind(atlas.texture);
 
 			wm.mutPos.lock();
 			wm.playerChunkPos	= player.pos / 16;
 			wm.playerChunkPos.y = 0;
 			wm.mutPos.unlock();
 
-			wm.draw(window);
+			wm.draw(window, instance, blockShaderLayout.vertex, genericDescriptorPool, mvpDescriptor, textureSamplerDescriptor, blockShader);
+		/*ImGui::End();*/
+		/**/
+		/*	glDisable(GL_DEPTH_TEST);*/
+		/**/
+		/*	agl::Mat4f proj;*/
+		/*	agl::Mat4f trans;*/
+		/*	proj.ortho(0, windowSize.x, windowSize.y, 0, 0.1, 100);*/
+		/*	trans.lookAt({0, 0, 10}, {0, 0, 0}, {0, 1, 0});*/
+		/**/
+		/*	uiShader.use();*/
+		/*	window.getShaderUniforms(uiShader);*/
+		/*	window.updateMvp(proj * trans);*/
+		/**/
+		/*	if (!event.isKeyPressed(agl::Key::F1))*/
+		/*	{*/
+		/*		blankRect.setTextureScaling({1, 1, 1});*/
+		/*		blankRect.setTextureTranslation({0, 0, 0});*/
+		/*		blankRect.setTexture(&blank);*/
+		/*		blankRect.setColor(agl::Color::White);*/
+		/*		blankRect.setRotation({0, 0, 0});*/
+		/*		blankRect.setSize({3, 3});*/
+		/*		blankRect.setPosition(windowSize / 2 - blankRect.getSize() / 2);*/
+		/*		window.drawShape(blankRect);*/
+		/**/
+		/*		blankRect.setColor(agl::Color{0, 0, 0, 127});*/
+		/*		blankRect.setPosition({4, 4});*/
+		/*		blankRect.setSize({200, 216});*/
+		/**/
+		/*		window.drawShape(blankRect);*/
+		/**/
+		/*		int i = 0;*/
+		/**/
+		/*		for (auto &e : player.pallete)*/
+		/*		{*/
+		/*			std::string name = blockDefs[e].name;*/
+		/**/
+		/*			if (i == player.currentPallete)*/
+		/*			{*/
+		/*				text.draw(window, std::to_string(i + 1) + ") " + name, {10, 10 + 0 + (i * 24)},*/
+		/*						  agl::Color{0x3c, 0x3c, 0x00, 0xFF});*/
+		/*				text.draw(window, std::to_string(i + 1) + ") " + name, {8, 8 + 0 + (i * 24)},*/
+		/*						  agl::Color{0xfd, 0xfe, 0x00, 0xFF});*/
+		/*			}*/
+		/*			else*/
+		/*			{*/
+		/*				text.draw(window, std::to_string(i + 1) + ") " + name, {10, 10 + 0 + (i * 24)},*/
+		/*						  agl::Color{0x34, 0x34, 0x34, 0xFF});*/
+		/*				text.draw(window, std::to_string(i + 1) + ") " + name, {8, 8 + 0 + (i * 24)},*/
+		/*						  agl::Color{0xDE, 0xDE, 0xDE, 0xFF});*/
+		/*			}*/
+		/**/
+		/*			i++;*/
+		/*		}*/
+		/*	}*/
+		/**/
+		/*	if (gamestate == GameState::PAUSE)*/
+		/*	{*/
+		/*		blankRect.setTexture(&blank);*/
+		/*		blankRect.setColor({0, 0, 0, 127});*/
+		/*		blankRect.setSize(windowSize);*/
+		/*		blankRect.setPosition({0, 0, 0});*/
+		/*		window.drawShape(blankRect);*/
+		/*	}*/
+		/*	if (gamestate == GameState::CMD)*/
+		/*	{*/
+		/*		if (cmdBox.commit)*/
+		/*		{*/
+		/*			std::vector<std::string> array	= splitString(cmdBox.cmd, ' ');*/
+		/*			int						 funcid = -1;*/
+		/**/
+		/*			if (array.size() != 0)*/
+		/*			{*/
+		/*				for (int i = 0; i < cmdBox.functions.size(); i++)*/
+		/*				{*/
+		/*					if (array[0] == cmdBox.functions[i].name)*/
+		/*					{*/
+		/*						funcid = i;*/
+		/*						break;*/
+		/*					}*/
+		/*				}*/
+		/*			}*/
+		/**/
+		/*			if (funcid != -1)*/
+		/*			{*/
+		/*				cmdBox.functions[funcid].func(array);*/
+		/*			}*/
+		/**/
+		/*			cmdBox.cmd	  = "";*/
+		/*			cmdBox.commit = false;*/
+		/*			gamestate	  = GameState::RUNNING;*/
+		/*		}*/
+		/*		else*/
+		/*		{*/
+		/*			window.draw(cmdBox);*/
+		/*		}*/
+		/*	}*/
+		/*}*/
+		/**/
+		/*glEnable(GL_DEPTH_TEST);*/
 
-			glDisable(GL_DEPTH_TEST);
-
-			agl::Mat4f proj;
-			agl::Mat4f trans;
-			proj.ortho(0, windowSize.x, windowSize.y, 0, 0.1, 100);
-			trans.lookAt({0, 0, 10}, {0, 0, 0}, {0, 1, 0});
-
-			uiShader.use();
-			window.getShaderUniforms(uiShader);
-			window.updateMvp(proj * trans);
-
-			if (!event.isKeyPressed(agl::Key::F1))
-			{
-				blankRect.setTextureScaling({1, 1, 1});
-				blankRect.setTextureTranslation({0, 0, 0});
-				blankRect.setTexture(&blank);
-				blankRect.setColor(agl::Color::White);
-				blankRect.setRotation({0, 0, 0});
-				blankRect.setSize({3, 3});
-				blankRect.setPosition(windowSize / 2 - blankRect.getSize() / 2);
-				window.drawShape(blankRect);
-
-				blankRect.setColor(agl::Color{0, 0, 0, 127});
-				blankRect.setPosition({4, 4});
-				blankRect.setSize({200, 216});
-
-				window.drawShape(blankRect);
-
-				int i = 0;
-
-				for (auto &e : player.pallete)
-				{
-					std::string name = blockDefs[e].name;
-
-					if (i == player.currentPallete)
-					{
-						text.draw(window, std::to_string(i + 1) + ") " + name, {10, 10 + 0 + (i * 24)},
-								  agl::Color{0x3c, 0x3c, 0x00, 0xFF});
-						text.draw(window, std::to_string(i + 1) + ") " + name, {8, 8 + 0 + (i * 24)},
-								  agl::Color{0xfd, 0xfe, 0x00, 0xFF});
-					}
-					else
-					{
-						text.draw(window, std::to_string(i + 1) + ") " + name, {10, 10 + 0 + (i * 24)},
-								  agl::Color{0x34, 0x34, 0x34, 0xFF});
-						text.draw(window, std::to_string(i + 1) + ") " + name, {8, 8 + 0 + (i * 24)},
-								  agl::Color{0xDE, 0xDE, 0xDE, 0xFF});
-					}
-
-					i++;
-				}
-			}
-
-			if (gamestate == GameState::PAUSE)
-			{
-				blankRect.setTexture(&blank);
-				blankRect.setColor({0, 0, 0, 127});
-				blankRect.setSize(windowSize);
-				blankRect.setPosition({0, 0, 0});
-				window.drawShape(blankRect);
-			}
-			if (gamestate == GameState::CMD)
-			{
-				if (cmdBox.commit)
-				{
-					std::vector<std::string> array	= splitString(cmdBox.cmd, ' ');
-					int						 funcid = -1;
-
-					if (array.size() != 0)
-					{
-						for (int i = 0; i < cmdBox.functions.size(); i++)
-						{
-							if (array[0] == cmdBox.functions[i].name)
-							{
-								funcid = i;
-								break;
-							}
-						}
-					}
-
-					if (funcid != -1)
-					{
-						cmdBox.functions[funcid].func(array);
-					}
-
-					cmdBox.cmd	  = "";
-					cmdBox.commit = false;
-					gamestate	  = GameState::RUNNING;
-				}
-				else
-				{
-					window.draw(cmdBox);
-				}
-			}
-		}
-
-		glEnable(GL_DEPTH_TEST);
-
-		window.display();
+		window.endDraw();
 
 		static int frame = 0;
 		frame++;
@@ -1002,9 +1100,9 @@ int main()
 		{
 			if (windowFocus)
 			{
-				static agl::Vec<int, 2> oldMousePos = event.getPointerWindowPosition();
+				static agl::Vec<int, 2> oldMousePos = getPointerPos(window);
 
-				agl::Vec<int, 2> mousePos = event.getPointerWindowPosition();
+				agl::Vec<int, 2> mousePos = getPointerPos(window);
 
 				agl::Vec<int, 2> deltaPos = mousePos - oldMousePos;
 
@@ -1027,37 +1125,37 @@ int main()
 
 				oldMousePos = mousePos;
 
-#ifdef __linux__
-				Window win = 0;
-				int	   i   = 0;
-				XGetInputFocus(window.baseWindow.dpy, &win, &i);
-				if (win == window.baseWindow.win)
-				{
-					if ((mousePos - (windowSize / 2)).length() > std::min(windowSize.x / 2, windowSize.y / 2))
-					{
-						XWarpPointer(window.baseWindow.dpy, None, window.baseWindow.win, 0, 0, 0, 0, windowSize.x / 2,
-									 windowSize.y / 2);
+/*#ifdef __linux__*/
+/*				Window win = 0;*/
+/*				int	   i   = 0;*/
+/*				XGetInputFocus(window.baseWindow.dpy, &win, &i);*/
+/*				if (win == window.baseWindow.win)*/
+/*				{*/
+/*					if ((mousePos - (windowSize / 2)).length() > std::min(windowSize.x / 2, windowSize.y / 2))*/
+/*					{*/
+/*						XWarpPointer(window.baseWindow.dpy, None, window.baseWindow.win, 0, 0, 0, 0, windowSize.x / 2,*/
+/*									 windowSize.y / 2);*/
+/**/
+/*						oldMousePos = windowSize / 2;*/
+/*					}*/
+/*				}*/
+/*#endif*/
 
-						oldMousePos = windowSize / 2;
-					}
-				}
-#endif
-
-#ifdef _WIN32
+/*#ifdef _WIN32*/
 				{
-					int focused = glfwGetWindowAttrib(window.baseWindow.window, GLFW_FOCUSED);
+					int focused = glfwGetWindowAttrib(window.window, GLFW_FOCUSED);
 
 					if (focused)
 					{
 						if ((mousePos - (windowSize / 2)).length() > std::min(windowSize.x / 2, windowSize.y / 2))
 						{
-							glfwSetCursorPos(window.baseWindow.window, windowSize.x / 2, windowSize.y / 2);
+							glfwSetCursorPos(window.window, windowSize.x / 2., windowSize.y / 2.);
 
 							oldMousePos = windowSize / 2;
 						}
 					}
 				}
-#endif
+/*#endif*/
 			}
 
 			updateSelected(player, selected, front, world);
@@ -1066,33 +1164,33 @@ int main()
 
 			if (windowFocus)
 			{
-				if (event.isKeyPressed(agl::Key::W))
+				if (glfwGetKey(window.window, GLFW_KEY_W))
 				{
 					acc.x += -sin(player.rot.y);
 					acc.z += -cos(player.rot.y);
 				}
-				if (event.isKeyPressed(agl::Key::A))
+				if (glfwGetKey(window.window, GLFW_KEY_A))
 				{
 					acc.x += -cos(player.rot.y);
 					acc.z += sin(player.rot.y);
 				}
-				if (event.isKeyPressed(agl::Key::S))
+				if (glfwGetKey(window.window, GLFW_KEY_S))
 				{
 					acc.x += sin(player.rot.y);
 					acc.z += cos(player.rot.y);
 				}
-				if (event.isKeyPressed(agl::Key::D))
+				if (glfwGetKey(window.window, GLFW_KEY_D))
 				{
 					acc.x += cos(player.rot.y);
 					acc.z += -sin(player.rot.y);
 				}
 
-				if (event.isKeyPressed(agl::Key::Space) && player.grounded)
+				if (glfwGetKey(window.window, GLFW_KEY_SPACE) && player.grounded)
 				{
 					player.vel.y = 0.48 / 3;
 				}
 
-				if (event.isKeyPressed(agl::Key::LeftShift))
+				if (glfwGetKey(window.window, GLFW_KEY_LEFT_SHIFT))
 				{
 					player.sprinting = true;
 				}
@@ -1101,43 +1199,43 @@ int main()
 					player.sprinting = false;
 				}
 
-				if (event.isKeyPressed(agl::Key::Num1))
+				if (glfwGetKey(window.window, GLFW_KEY_1))
 				{
 					player.currentPallete = 0;
 				}
-				if (event.isKeyPressed(agl::Key::Num2))
+				if (glfwGetKey(window.window, GLFW_KEY_2))
 				{
 					player.currentPallete = 1;
 				}
-				if (event.isKeyPressed(agl::Key::Num3))
+				if (glfwGetKey(window.window, GLFW_KEY_3))
 				{
 					player.currentPallete = 2;
 				}
-				if (event.isKeyPressed(agl::Key::Num4))
+				if (glfwGetKey(window.window, GLFW_KEY_4))
 				{
 					player.currentPallete = 3;
 				}
-				if (event.isKeyPressed(agl::Key::Num5))
+				if (glfwGetKey(window.window, GLFW_KEY_5))
 				{
 					player.currentPallete = 4;
 				}
-				if (event.isKeyPressed(agl::Key::Num6))
+				if (glfwGetKey(window.window, GLFW_KEY_6))
 				{
 					player.currentPallete = 5;
 				}
-				if (event.isKeyPressed(agl::Key::Num7))
+				if (glfwGetKey(window.window, GLFW_KEY_7))
 				{
 					player.currentPallete = 6;
 				}
-				if (event.isKeyPressed(agl::Key::Num8))
+				if (glfwGetKey(window.window, GLFW_KEY_8))
 				{
 					player.currentPallete = 7;
 				}
-				if (event.isKeyPressed(agl::Key::Num8))
+				if (glfwGetKey(window.window, GLFW_KEY_8))
 				{
 					player.currentPallete = 8;
 				}
-				if (event.isKeyPressed(agl::Key::Num9))
+				if (glfwGetKey(window.window, GLFW_KEY_9))
 				{
 					player.currentPallete = 9;
 				}
@@ -1149,8 +1247,8 @@ int main()
 
 			if (windowFocus)
 			{
-				lclis.update(event.isPointerButtonPressed(agl::Button::Left));
-				rclis.update(event.isPointerButtonPressed(agl::Button::Right));
+				lclis.update(glfwGetMouseButton(window.window, GLFW_MOUSE_BUTTON_LEFT));
+				rclis.update(glfwGetMouseButton(window.window, GLFW_MOUSE_BUTTON_RIGHT));
 
 				if (rclis.ls == ListenState::First && !(front == player.pos))
 				{
@@ -1307,7 +1405,7 @@ int main()
 					}
 				}
 
-				if (event.isKeyPressed(agl::Key::T))
+				if (glfwGetKey(window.window, GLFW_KEY_T))
 				{
 					gamestate = GameState::CMD;
 				}
@@ -1317,13 +1415,13 @@ int main()
 		{
 			if (windowFocus)
 			{
-				if (event.isKeyPressed(agl::Key::Escape))
+				if (glfwGetKey(window.window, GLFW_KEY_ESCAPE))
 				{
 					gamestate = GameState::RUNNING;
 				}
 				else
 				{
-					cmdBox.update(event.keybuffer);
+					/*cmdBox.update(event.keybuffer);*/
 				}
 			}
 		}
@@ -1331,7 +1429,7 @@ int main()
 		{
 		}
 
-		window.setViewport(0, 0, windowSize.x, windowSize.y);
+		/*window.setViewport(0, 0, windowSize.x, windowSize.y);*/
 
 		agl::Vec<int, 3> chunkPos = player.pos / 16;
 		chunkPos.y				  = 0;
@@ -1346,14 +1444,14 @@ int main()
 
 	wm.clear();
 
-	font.deleteFont();
+	/*font.deleteFont();*/
 
-	blank.deleteTexture();
+	/*blank.deleteTexture();*/
 
 	tintTextureGrass.free();
 	tintTextureFoliage.free();
 
-	window.close();
+	window.destroy();
 
 	std::cout << "end" << '\n';
 

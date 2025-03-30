@@ -78,3 +78,10 @@ cavegame_linux_patch1.zip
 bin/test.world
 bin/test.zip
 bin/other.world
+lib/Viz
+vcpkg_installed
+lib/Vec.hpp
+lib/Mat4f.hpp
+*.spv
+bin/imgui.ini
+lib/Mat.hpp

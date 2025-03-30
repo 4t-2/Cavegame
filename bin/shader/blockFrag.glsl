@@ -1,11 +1,11 @@
-#version 330 core
+#version 450
 
-in vec2 UVcoord;
-in vec3 light;
+layout(location=0) in vec2 UVcoord;
+layout(location=1) in vec3 light;
 
-out vec4 color;
+layout(location=0) out vec4 color;
 
-uniform sampler2D textureSampler;
+layout(set=2,binding=0) uniform sampler2D textureSampler;
 
 void main()
 {

@@ -1,15 +1,21 @@
-#version 330 core
+#version 450
 
-layout(location = 0) in vec3 position;
-layout(location = 1) in vec2 vertexUV;
+layout(set=0,binding=0) readonly buffer Vertex
+{
+	vec3 position;
+	vec2 vertexUV;
+};
 
-uniform mat4 transform;
-uniform mat4 mvp;
-uniform vec4 shapeColor;
-uniform mat4 textureTransform;
+layout(set=1,binding=0) readonly buffer Data
+{
+	mat4 transform;
+	mat4 mvp;
+	vec4 shapeColor;
+	mat4 textureTransform;
+};
 
-out vec2 UVcoord;
-out vec4 fragColor;
+layout(location=0) out vec2 UVcoord;
+layout(location=1) out vec4 fragColor;
 
 void main()
 {

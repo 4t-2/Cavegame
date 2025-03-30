@@ -1,0 +1,16 @@
+{
+  "dependencies": [
+    "glfw3",
+    {
+      "name": "imgui",
+      "features": [
+        "glfw-binding",
+        "vulkan-binding"
+      ]
+    },
+    "stb",
+    "vulkan",
+    "vulkan-memory-allocator",
+	"jsoncpp"
+  ]
+}

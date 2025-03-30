@@ -3,6 +3,7 @@
 #include "../inc/Block.hpp"
 #include <filesystem>
 #include <list>
+#include <unordered_map>
 
 #define MAXHEIGHT 384
 #define MINHEIGHT 0

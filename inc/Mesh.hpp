@@ -1,7 +1,6 @@
 #pragma once
 
 #include "World.hpp"
-#include <AXIS/ax.hpp>
 #include <atomic>
 #include <mutex>
 
@@ -34,7 +33,8 @@ class Timer
 struct ChunkMesh
 {
 		agl::Vec<int, 3> pos;
-		agl::GLPrimative mesh;
+		Buffer mesh;
+		Descriptor desc;
 		bool			 baked	= false;
 		bool			 update = false;
 
@@ -42,32 +42,52 @@ struct ChunkMesh
 		std::vector<float> UVBuffer;
 		std::vector<float> lightBuffer;
 
+		struct TempThing
+		{
+			glm::vec4 pos;
+			glm::vec4 vertexUV;
+			glm::vec4 lighting;
+		};
+
+		std::vector<TempThing> data;
+
 		ChunkMesh(World &world, std::vector<Block> &blockDefs, agl::Vec<int, 3> chunkPos);
 
 		~ChunkMesh()
 		{
-			mesh.deleteData();
+			mesh.destroy();
 		}
 
-		void draw(agl::RenderWindow &w)
+		void draw(Window &w, Instance &instance, DescriptorLayout &layout, DescriptorPool &pool, Descriptor &mvp, Descriptor &image, Pipeline &pipeline)
 		{
 			if (!baked)
 			{
-				mesh.genBuffers(3);
-				mesh.setMode(GL_TRIANGLES);
-				mesh.setVertexAmount(posBuffer.size() / 3);
-				mesh.setBufferData(0, &posBuffer[0], 3);
-				mesh.setBufferData(1, &UVBuffer[0], 2);
-				mesh.setBufferData(2, &lightBuffer[0], 3);
+				data.reserve(posBuffer.size() / 3);
+				for(int i = 0; i < posBuffer.size() / 3; i++)
+				{
+					data.push_back({
+							{posBuffer[i * 3 + 0], posBuffer[i * 3 + 1], posBuffer[i * 3 + 2], 0}, 
+							{UVBuffer[i * 2 + 0], UVBuffer[i * 2 + 1], 0, 0},
+							{lightBuffer[i * 3 + 0], lightBuffer[i * 3 + 1], lightBuffer[i * 3 + 2], 0},
+							});
+				}
 
-				posBuffer.clear();
-				UVBuffer.clear();
-				lightBuffer.clear();
+				mesh = instance.createBufferStaged(data, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+
+				desc = pool.createDescriptor(layout, &mesh, nullptr, nullptr);
 
 				baked = true;
 			}
 
-			w.drawPrimative(mesh);
+			ImGui::Text("total is %zu", data.size());
+			
+			for(int i = 0; i < 10; i++)
+			{
+				ImGui::Text("%f %f %f", data[i * 100].pos.x, data[i * 100].pos.y, data[i * 100].pos.z);
+			}
+
+			w.draw(data.size(), {desc, mvp, image}, pipeline);
+			/*w.drawPrimative(mesh);*/
 		}
 };
 
@@ -99,13 +119,14 @@ class WorldMesh
 			toAdd.clear();
 		}
 
-		void draw(agl::RenderWindow &rw)
+		void draw(Window &rw, Instance &instance, DescriptorLayout &layout, DescriptorPool &pool, Descriptor &mvp, Descriptor &image, Pipeline &pipeline)
 		{
 			Timer t;
 			t.start();
 			for (auto it = mesh.begin(); it != mesh.end(); it++)
 			{
-				it->draw(rw);
+				/*ImGui::Text("%llu", (unsigned long long)&*it);*/
+				it->draw(rw, instance, layout, pool, mvp, image, pipeline);
 			}
 			t.stop();
 			// std::cout << "took " << t.get<std::chrono::milliseconds>() << '\n';
@@ -126,8 +147,8 @@ class WorldMesh
 		}
 };
 
-#define RENDERDIST	6
-#define DESTROYDIST 7
+#define RENDERDIST	1
+#define DESTROYDIST 2
 
 void buildThread(WorldMesh &wm, bool &closeThread);
 

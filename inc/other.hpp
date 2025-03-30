@@ -1,5 +1,6 @@
 #pragma once
-#include <AXIS/ax.hpp>
+#include <Vec.hpp>
+#include <vector>
 
 float loop(float min, float max, float value);
 

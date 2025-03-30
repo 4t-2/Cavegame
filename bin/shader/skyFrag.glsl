@@ -1,12 +1,15 @@
-#version 330 core
+#version 450
 
-out vec4 color;
+layout(location=0) out vec4 color;
 
-uniform float time;
-uniform float rotx;
-uniform float roty;
+layout(set=2, binding=0) uniform Data
+{
+	float time;
+	float rotx;
+	float roty;
+};
 
-in vec4 pos;
+layout(location=0) in vec4 pos;
 
 void main()
 {
