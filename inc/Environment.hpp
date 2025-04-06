@@ -1,5 +1,7 @@
 #pragma once
 
+#include <list>
+
 template<typename T>
 class Environment
 {
@@ -13,6 +15,8 @@ class Environment
 
 		T* addEntity()
 		{
-
+			entityList.push_back();
+		
+			return &entityList.back();
 		}
-}
+};

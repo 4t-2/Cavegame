@@ -799,9 +799,9 @@ void movePlayer(Player &player, agl::Vec<float, 3> acc, World &world)
 
 	player.pos.z += player.vel.z;
 
-	correctPositionZ(player, world);
+	/*correctPositionZ(player, world);*/
 
-	correctPositionDiagonal(player, world);
+	/*correctPositionDiagonal(player, world);*/
 }
 
 void updateSelected(Player &player, agl::Vec<int, 3> &selected, agl::Vec<int, 3> &front, World &world)
@@ -1099,10 +1099,7 @@ int main()
 	/*MCText text(blankRect);*/
 	/*text.scale = 2;*/
 
-	World world;
-	world.setBasics(blockDefs);
-
-	world.blockDefs = &blockDefs;
+	World world(&blockNameToDef, &blockDefs);
 
 	Player player;
 
@@ -1118,7 +1115,7 @@ int main()
 
 	for (auto &e : player.pallete)
 	{
-		e = world.cobblestone;
+		e = world.errorBlock;
 	}
 
 	hideCursor(window);
@@ -1126,9 +1123,6 @@ int main()
 	WorldMesh wm(world, blockDefs);
 
 	world.blockNameToDef = &blockNameToDef;
-	std::cout << "start" << '\n';
-	world.createChunk({0, 0, 0});
-	std::cout << "end" << '\n';
 
 	bool closeThread = false;
 
@@ -1363,6 +1357,10 @@ int main()
 		/*}*/
 		/**/
 		/*glEnable(GL_DEPTH_TEST);*/
+
+			ImGui::Begin("Player Info");
+			ImGui::Text("%s", std::format("position : {} {} {}", player.pos.x, player.pos.y, player.pos.z).c_str());
+			ImGui::End();
 
 			ImGui::Begin("Log");
 		

@@ -287,12 +287,7 @@ void World::createChunk(agl::Vec<int, 3> chunkPos)
 			{
 				for(int z = 0; z < 16; z++)
 				{
-					if(y < 100)
-					{
-						cr.set({x, y, z}, BlockData{stone});
-					} else {
-						cr.set({x, y, z}, BlockData{air});
-					}
+					cr.set({x, y, z}, BlockData{air});
 				}
 			}
 		}
@@ -305,14 +300,19 @@ void World::createChunk(agl::Vec<int, 3> chunkPos)
 		FILE *fp = fopen(std::string("./worlds/river/region/r."+xstr+"."+ystr+".mca").c_str(), "rb");
 		if (!fp)
 		{
-			std::cout << "file not found" << '\n';
+			Log::addLog(std::format("region {} {} not found!", xstr, ystr));
 			return;
 		}
 
 		auto erf = enkiRegionFileLoad(fp);
 
 		enkiNBTDataStream stream;
-		enkiInitNBTDataStreamForChunk(erf, 32 * (chunkPos.z % 32) + (chunkPos.x % 32), &stream);
+
+		agl::Vec<int, 3> loadingPos = chunkPos;
+		loadingPos.x = loadingPos.x < 0 ? 32 + loadingPos.x : loadingPos.x;
+		loadingPos.z = loadingPos.z < 0 ? 32 + loadingPos.z : loadingPos.z;
+		enkiInitNBTDataStreamForChunk(erf, 32 * (loadingPos.z % 32) + (loadingPos.x % 32), &stream);
+
 		if (stream.dataLength)
 		{
 			enkiChunkBlockData aChunk		  = enkiNBTReadChunk(&stream);
@@ -345,7 +345,7 @@ void World::createChunk(agl::Vec<int, 3> chunkPos)
 								{
 									/*Log::addLog(std::format("couldnt find : {}", strName));*/
 									/*std::cout << "didnt find " << strName << '\n';*/
-									cr.set(blockPos, BlockData{stone});
+									cr.set(blockPos, BlockData{errorBlock});
 								} else
 								{
 									unsigned int id = (*blockNameToDef).at(strName);
@@ -362,95 +362,6 @@ void World::createChunk(agl::Vec<int, 3> chunkPos)
 
 		enkiRegionFileFreeAllocations(&erf);
 		fclose(fp);
-	}
-
-	return;
-	std::vector<float> continentalnessAmp = {1, 1, 2, 2, 2, 1, 1, 1, 1};
-	std::vector<float> erosionAmp		  = {1, 1, 0, 1, 1, 1, 1, 1, 1};
-	std::vector<float> ridgeAmp			  = {1, 2, 1, 0, 0, 0, 1};
-
-	ChunkRaw &cr = loadedChunks[chunkPos];
-	for (int x = 0; x < 16; x++)
-	{
-		for (int z = 0; z < 16; z++)
-		{
-			agl::Vec<float, 2> noisePos = {(chunkPos.x * 16) + x, (chunkPos.z * 16) + z};
-
-			float con = ((fbm(noisePos / 640, continentalnessAmp) - .5) * 2);
-			float ero = ((fbm((noisePos / 400) + agl::Vec<float, 2>(1000, 1000), erosionAmp) - .5) * 2);
-			float rid = ((fbm((noisePos / 256) + agl::Vec<float, 2>(-1000, -0100), ridgeAmp) - .5) * 2);
-
-			// std::cout << con << "\n";
-
-			float folded = (std::abs(std::abs(rid) - 0.51) - 0.49) * -3;
-			folded		 = std::min(std::max(-0.1f, folded), 0.1f);
-			folded += .1;
-			folded *= 5;
-
-			// LineGr
-
-			// float offset = rid;
-
-			float offset = con / 3;
-			offset *= (std::max<float>(ero - .25, 0.f) * 20) + 1;
-			// if(ero > 0)
-			// {
-			// 	offset = 1;
-			// }
-			offset *= folded;
-
-			// offset += ero * std::max(0.f, con);
-
-			// float offset = getSplineVal(splineRoot, con, ero, folded);
-
-			offset += -0.6;
-			// offset += .5;
-
-			int height = (((offset + 1.5) / 3.) * 384.);
-
-			height = std::max(0, std::min(384, height));
-
-			for (int y = MINHEIGHT; y < MAXHEIGHT; y++)
-			{
-				if (y <= 62 + 64)
-				{
-					cr.set({x, y, z}, BlockData{blue_wool});
-				}
-				else if (y <= height)
-				{
-					if ((con / 3) < .105)
-					{
-						cr.set({x, y, z}, BlockData{sand});
-						continue;
-					}
-
-					int diff = height - y;
-					if (diff == 0)
-					{
-						if (y > 64 + 62 + 20)
-						{
-							cr.set({x, y, z}, BlockData{snow});
-						}
-						else
-						{
-							cr.set({x, y, z}, BlockData{grass});
-						}
-					}
-					else if (diff > 1)
-					{
-						cr.set({x, y, z}, BlockData{stone});
-					}
-					else
-					{
-						cr.set({x, y, z}, BlockData{dirt});
-					}
-				}
-				else
-				{
-					cr.set({x, y, z}, BlockData{air});
-				}
-			}
-		}
 	}
 }
 

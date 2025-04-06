@@ -29,7 +29,7 @@ void buildThread(WorldMesh &wm, bool &closeThread)
 			}
 		}
 
-		Log::addLog(std::format("creating chunk {} {}", x, y));
+		Log::addLog(std::format("creating mesh {} {} with offset {} {} at position {} {}", cursor.x, cursor.z, x, y, playerChunkPos.x, playerChunkPos.z));
 		wm.toAdd.emplace_back(wm.world, wm.blockDefs, cursor);
 		changesMade = true;
 
@@ -289,7 +289,7 @@ inline void calcAOCandExposed(BlockData &bd, agl::Vec<int, 3> pos, agl::Vec<int,
 		{                                                                                         \
 			id = world.air;                                                                       \
 		}                                                                                         \
-		blockMap.data[X][Y][Z] = (id == world.air || id == world.leaves || !blockDefs[id].solid); \
+		blockMap.data[X][Y][Z] = (!blockDefs[id].solid); \
 	}
 
 #define MACRO2(L)       \

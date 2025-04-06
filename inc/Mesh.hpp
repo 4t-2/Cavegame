@@ -62,6 +62,7 @@ struct ChunkMesh
 		{
 			if (!baked)
 			{
+				Log::addLog(std::format("reserve is {}", posBuffer.size()));
 				data.reserve(posBuffer.size() / 3);
 				for(int i = 0; i < posBuffer.size() / 3; i++)
 				{
@@ -72,6 +73,7 @@ struct ChunkMesh
 							});
 				}
 
+				Log::addLog(std::format("size {}", data.size()));
 				mesh = instance.createBufferStaged(data, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
 				desc = pool.createDescriptor(layout, &mesh, nullptr, nullptr);
@@ -139,8 +141,8 @@ class WorldMesh
 		}
 };
 
-#define RENDERDIST	1
-#define DESTROYDIST 2
+#define RENDERDIST	3
+#define DESTROYDIST 4
 
 void buildThread(WorldMesh &wm, bool &closeThread);
 
