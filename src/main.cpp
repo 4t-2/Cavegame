@@ -25,6 +25,8 @@
 #define GRAVACC (-.08 / 9)
 #define WALKACC (1 / 3.)
 #define BLCKFRC 0.6
+#define AIRFRIC 0.60
+#define FLYACCE 0.049
 
 #define BASESPEED WALKVELPERTICK
 
@@ -194,7 +196,7 @@ class Player
 		int currentPallete = 0;
 		int pallete[9];
 
-		agl::Vec<float, 3> pos = {0, 200, 0};
+		agl::Vec<float, 3> pos = {0, 150, 0};
 		agl::Vec<float, 3> rot = {0, PI / 2, 0};
 		agl::Vec<float, 3> vel = {0, 0, 0};
 
@@ -763,13 +765,11 @@ void correctPositionDiagonal(Player &player, World &world)
 
 void movePlayer(Player &player, agl::Vec<float, 3> acc, World &world)
 {
-	player.vel.y *= 0.98;
-	player.vel.y += GRAVACC;
+	/*player.vel.y *= 0.98;*/
+	/*player.vel.y += GRAVACC;*/
 
-	player.vel.x *= BLCKFRC * 0.91;
-	player.vel.z *= BLCKFRC * 0.91;
-
-	acc *= WALKACC * 0.98;
+	player.vel *= AIRFRIC * 0.91;
+	acc *= FLYACCE * 0.98;
 
 	float mod = 1;
 	if (player.sneaking)
@@ -787,15 +787,15 @@ void movePlayer(Player &player, agl::Vec<float, 3> acc, World &world)
 	// 	acc = acc.normalized() * mod / 3;
 	// }
 
-	player.vel += acc * 0.1;
+	player.vel += acc;
 
 	player.pos.y += player.vel.y;
 
-	correctPositionY(player, world);
+	/*correctPositionY(player, world);*/
 
 	player.pos.x += player.vel.x;
 	
-	correctPositionX(player, world);
+	/*correctPositionX(player, world);*/
 
 	player.pos.z += player.vel.z;
 
@@ -1471,9 +1471,14 @@ int main()
 					acc.z += -sin(player.rot.y);
 				}
 
-				if (glfwGetKey(window.window, GLFW_KEY_SPACE) && player.grounded)
+				if (glfwGetKey(window.window, GLFW_KEY_SPACE))
 				{
-					player.vel.y = 0.48 / 3;
+					acc.y = 1;
+				}
+
+				if(glfwGetKey(window.window, GLFW_KEY_LEFT_CONTROL))
+				{
+					acc.y = -1;
 				}
 
 				if (glfwGetKey(window.window, GLFW_KEY_LEFT_SHIFT))

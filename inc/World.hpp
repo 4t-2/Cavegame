@@ -79,12 +79,6 @@ class World
 		{
 			auto b = getBlock(pos);
 
-			if(pos.x < 0)
-			{
-			Log::addLog(std::format("{} {} {}", pos.x, pos.y, pos.z));
-			Log::addLog(std::format("{} {}", b.type, (*blockDefs)[b.type].name));
-			}
-
 			return (*blockDefs)[b.type].solid;
 		}
 
