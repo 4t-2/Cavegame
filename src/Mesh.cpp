@@ -1,4 +1,5 @@
 #include "../inc/Mesh.hpp"
+#include <format>
 
 void buildThread(WorldMesh &wm, bool &closeThread)
 {
@@ -28,6 +29,7 @@ void buildThread(WorldMesh &wm, bool &closeThread)
 			}
 		}
 
+		Log::addLog(std::format("creating chunk {} {}", x, y));
 		wm.toAdd.emplace_back(wm.world, wm.blockDefs, cursor);
 		changesMade = true;
 
@@ -78,12 +80,14 @@ void buildThread(WorldMesh &wm, bool &closeThread)
 			{
 				if ((it->pos - playerChunkPos).length() > DESTROYDIST)
 				{
+					Log::addLog(std::format("destroying chunk {} {}", it->pos.x, it->pos.z));
 					wm.toDestroy.push_back(it);
 					changesMade = true;
 				}
 
 				if (it->update)
 				{
+					Log::addLog(std::format("updating chunk {} {}", it->pos.x, it->pos.z));
 					wm.toDestroy.push_back(it);
 					changesMade = true;
 					buildChunk(it->pos.x - playerChunkPos.x, it->pos.z - playerChunkPos.z);

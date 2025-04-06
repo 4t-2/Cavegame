@@ -14,6 +14,6 @@ layout(location=0) out vec4 pos;
 
 void main()
 {
-	pos = transform * position[gl_VertexIndex];
-    gl_Position = pos;
+	pos = position[gl_VertexIndex];
+    gl_Position = transform * pos;
 }

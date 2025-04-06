@@ -209,6 +209,7 @@ class World
 		unsigned int								   dirt;
 		unsigned int								   stone;
 		unsigned int								   sand;
+		std::map<std::string, unsigned int> *blockNameToDef;
 
 		World() : loadedChunks()
 		{

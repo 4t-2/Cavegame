@@ -24,10 +24,11 @@ foreach(SHADER ${FRAG_SHADERS})
 endforeach()
 
 file(GLOB_RECURSE SRC ./src/*.cpp)
+file(GLOB_RECURSE ENKIMI ./lib/enkiMI/src/*.c)
 
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set (CMAKE_CXX_STANDARD 17)
+set (CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_COMPILER "g++")
 
 # set(CMAKE_BUILD_TYPE Debug) # default build
@@ -42,7 +43,7 @@ elseif(CMAKE_BUILD_TYPE MATCHES Release)
 	message(STATUS "Building with release flags")
 endif()
 
-add_executable(CaveGame src/main.cpp src/World.cpp src/other.cpp src/Mesh.cpp src/installing.cpp)
+add_executable(CaveGame src/main.cpp src/World.cpp src/other.cpp src/Mesh.cpp src/installing.cpp ${ENKIMI})
 
 find_package(jsoncpp CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
@@ -56,6 +57,7 @@ target_link_libraries(CaveGame PRIVATE imgui::imgui)
 target_link_libraries(CaveGame PRIVATE JsonCpp::JsonCpp)
 target_link_libraries(CaveGame PRIVATE imgui::imgui)
 target_include_directories(CaveGame PRIVATE "lib")
+target_include_directories(CaveGame PRIVATE "./lib/enkiMI/src")
 target_include_directories(CaveGame PRIVATE ${Stb_INCLUDE_DIR})
 
 include_directories("./lib")

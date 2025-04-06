@@ -1,5 +1,8 @@
 #include "../inc/World.hpp"
+#include <enkimi.h>
+#include <format>
 #include <fstream>
+#include <utility>
 #include <vector>
 
 long long xorshift(long long num)
@@ -268,8 +271,100 @@ float getSplineVal(Json::Value splineRoot, float continentalness, float erosion,
 	return -99999999.;
 }
 
+agl::Vec<int, 3> conv(enkiMICoordinate p)
+{
+	return {p.x, p.y, p.z};
+}
+
 void World::createChunk(agl::Vec<int, 3> chunkPos)
 {
+	{
+		ChunkRaw &cr = loadedChunks[chunkPos];
+
+		for(int x = 0; x < 16; x++)
+		{
+			for(int y = 0; y < MAXHEIGHT; y++)
+			{
+				for(int z = 0; z < 16; z++)
+				{
+					if(y < 100)
+					{
+						cr.set({x, y, z}, BlockData{stone});
+					} else {
+						cr.set({x, y, z}, BlockData{air});
+					}
+				}
+			}
+		}
+	
+		std::string xstr = std::to_string(chunkPos.x >> 5);
+		std::string ystr = std::to_string(chunkPos.z >> 5);
+
+		/*Log::addLog(std::format("{} {} {}", chunkPos.x, chunkPos.y, chunkPos.z));*/
+
+		FILE *fp = fopen(std::string("./worlds/river/region/r."+xstr+"."+ystr+".mca").c_str(), "rb");
+		if (!fp)
+		{
+			std::cout << "file not found" << '\n';
+			return;
+		}
+
+		auto erf = enkiRegionFileLoad(fp);
+
+		enkiNBTDataStream stream;
+		enkiInitNBTDataStreamForChunk(erf, 32 * (chunkPos.z % 32) + (chunkPos.x % 32), &stream);
+		if (stream.dataLength)
+		{
+			enkiChunkBlockData aChunk		  = enkiNBTReadChunk(&stream);
+			enkiMICoordinate   chunkOriginPos = enkiGetChunkOrigin(&aChunk);
+
+			for (int section = 0; section < ENKI_MI_NUM_SECTIONS_PER_CHUNK; ++section)
+			{
+				if (aChunk.sections[section])
+				{
+					enkiMICoordinate sectionOrigin = enkiGetChunkSectionOrigin(&aChunk, section);
+					sectionOrigin.x = 0;
+					sectionOrigin.z = 0;
+
+					enkiMICoordinate sPos;
+					for (sPos.y = 0; sPos.y < ENKI_MI_SIZE_SECTIONS; ++sPos.y)
+					{
+						for (sPos.z = 0; sPos.z < ENKI_MI_SIZE_SECTIONS; ++sPos.z)
+						{
+							for (sPos.x = 0; sPos.x < ENKI_MI_SIZE_SECTIONS; ++sPos.x)
+							{
+								auto voxel = enkiGetChunkSectionVoxelData(&aChunk, section, sPos);
+
+								auto enkiString = aChunk.palette[section].pNamespaceIDStrings[voxel.paletteIndex];
+
+								auto strName = std::string(enkiString.pStrNotNullTerminated, enkiString.size);
+
+								agl::Vec<int, 3> blockPos = (conv(sPos) + conv(sectionOrigin) + agl::Vec{0, 64, 0});
+								
+								if((*blockNameToDef).find(strName) == blockNameToDef->end())
+								{
+									/*Log::addLog(std::format("couldnt find : {}", strName));*/
+									/*std::cout << "didnt find " << strName << '\n';*/
+									cr.set(blockPos, BlockData{stone});
+								} else
+								{
+									unsigned int id = (*blockNameToDef).at(strName);
+									cr.set(blockPos, BlockData{id});
+								}
+							}
+						}
+					}
+				}
+			}
+			enkiNBTRewind(&stream);
+			enkiNBTFreeAllocations(&stream);
+		}
+
+		enkiRegionFileFreeAllocations(&erf);
+		fclose(fp);
+	}
+
+	return;
 	std::vector<float> continentalnessAmp = {1, 1, 2, 2, 2, 1, 1, 1, 1};
 	std::vector<float> erosionAmp		  = {1, 1, 0, 1, 1, 1, 1, 1, 1};
 	std::vector<float> ridgeAmp			  = {1, 2, 1, 0, 0, 0, 1};

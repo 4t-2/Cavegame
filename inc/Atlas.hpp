@@ -7,6 +7,7 @@
 #include <stb_image.h>
 
 #include <map>
+#include "Log.hpp"
 
 static int dimtorange(agl::Vec<int, 2> dim, agl::Vec<int, 2> size, int period)
 {

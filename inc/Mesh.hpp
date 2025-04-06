@@ -79,13 +79,6 @@ struct ChunkMesh
 				baked = true;
 			}
 
-			ImGui::Text("total is %zu", data.size());
-			
-			for(int i = 0; i < 10; i++)
-			{
-				ImGui::Text("%f %f %f", data[i * 100].pos.x, data[i * 100].pos.y, data[i * 100].pos.z);
-			}
-
 			w.draw(data.size(), {desc, mvp, image}, pipeline);
 			/*w.drawPrimative(mesh);*/
 		}
@@ -125,7 +118,6 @@ class WorldMesh
 			t.start();
 			for (auto it = mesh.begin(); it != mesh.end(); it++)
 			{
-				/*ImGui::Text("%llu", (unsigned long long)&*it);*/
 				it->draw(rw, instance, layout, pool, mvp, image, pipeline);
 			}
 			t.stop();

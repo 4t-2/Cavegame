@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <format>
 #include <fstream>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <imgui.h>
@@ -13,6 +14,7 @@
 #include <thread>
 #include <vulkan/vulkan_core.h>
 
+#include <enkimi.h>
 #include <Mat.hpp>
 /*#include "../inc/CommandBox.hpp"*/
 #include "../inc/Mesh.hpp"
@@ -228,6 +230,70 @@ void hideCursor(Window &window)
 /*#endif*/
 }
 
+// genSphereVertices
+	// generates UV sphere vertices
+	// cylinderx, x resolution
+	// cylindery y resolution
+	void genSphereVertices(std::vector<glm::vec4> &vertex, int cylinderx, int cylindery) {
+		// the vertex data (x and y)
+		vertex.resize(cylinderx * cylindery * 6);
+
+		int index = 0;
+		for (int x = 0; x < cylinderx; x++) {
+			for (int y = 0; y < cylindery; y++) {
+
+				vertex[index * 6 + 0].x = 0 + x;
+				vertex[index * 6 + 0].y = 0 + y;
+				vertex[index * 6 + 0].z = 0;
+				vertex[index * 6 + 0].w = 1;
+
+				vertex[index * 6 + 1].x = 1 + x;
+				vertex[index * 6 + 1].y = 0 + y;
+				vertex[index * 6 + 1].z = 0;
+				vertex[index * 6 + 1].w = 1;
+
+				vertex[index * 6 + 2].x = 0 + x;
+				vertex[index * 6 + 2].y = 1 + y;
+				vertex[index * 6 + 2].z = 0;
+				vertex[index * 6 + 2].w = 1;
+
+				vertex[index * 6 + 3].x = 0 + x;
+				vertex[index * 6 + 3].y = 1 + y;
+				vertex[index * 6 + 3].z = 0;
+				vertex[index * 6 + 3].w = 1;
+
+				vertex[index * 6 + 4].x = 1 + x;
+				vertex[index * 6 + 4].y = 0 + y;
+				vertex[index * 6 + 4].z = 0;
+				vertex[index * 6 + 4].w = 1;
+
+				vertex[index * 6 + 5].x = 1 + x;
+				vertex[index * 6 + 5].y = 1 + y;
+				vertex[index * 6 + 5].z = 0;
+				vertex[index * 6 + 5].w = 1;
+				index++;
+			}
+		}
+
+		for (int i = 0; i < cylinderx * cylindery * 6; i++) {
+			float x = vertex[i].x;
+
+			vertex[i].x = (float) sin(2 * PI * (x / cylinderx));
+			vertex[i].y = 2 * (vertex[i].y / cylindery) - 1;
+			vertex[i].z = (float) cos(2 * PI * (x / cylinderx));
+		}
+
+		for (int i = 0; i < cylinderx * cylindery * 6; i++) {
+			float y = vertex[i].y;
+			float scale = (float) cos(y * PI / 2);
+			float height = (float) sin(y * PI / 2);
+
+			vertex[i ].x *= scale;
+			vertex[i ].y = height;
+			vertex[i ].z *= scale;
+		}
+	}
+
 struct Collision
 {
 		agl::Vec<int, 3> norm;
@@ -332,7 +398,7 @@ void correctPositionXZ(Player &player, World &world)
 
 	// diagonal
 
-	if (!(agl::Vec<int, 3>{int(player.pos.x - .3), (int)player.pos.y, int(player.pos.z - .3)} == player.pos))
+	if (!(agl::Vec<float, 3>{int(player.pos.x - .3), (int)player.pos.y, int(player.pos.z - .3)} == player.pos))
 	{
 		int x = player.pos.x - 0.3;
 		int z = player.pos.z - 0.3;
@@ -354,7 +420,7 @@ void correctPositionXZ(Player &player, World &world)
 			}
 		}
 	}
-	if (!(agl::Vec<int, 3>{int(player.pos.x + 0.3), (int)player.pos.y, int(player.pos.z - .3)} == player.pos))
+	if (!(agl::Vec<float, 3>{int(player.pos.x + 0.3), (int)player.pos.y, int(player.pos.z - .3)} == player.pos))
 	{
 		int x = player.pos.x + 0.3;
 		int z = player.pos.z - 0.3;
@@ -376,7 +442,7 @@ void correctPositionXZ(Player &player, World &world)
 			}
 		}
 	}
-	if (!(agl::Vec<int, 3>{int(player.pos.x - .3), (int)player.pos.y, (int)(player.pos.z + .3)} == player.pos))
+	if (!(agl::Vec<float, 3>{int(player.pos.x - .3), (int)player.pos.y, (int)(player.pos.z + .3)} == player.pos))
 	{
 		int x = player.pos.x - 0.3;
 		int z = player.pos.z + 0.3;
@@ -398,7 +464,7 @@ void correctPositionXZ(Player &player, World &world)
 			}
 		}
 	}
-	if (!(agl::Vec<int, 3>{(int)(player.pos.x + .3), (int)player.pos.y, (int)(player.pos.z + .3)} == player.pos))
+	if (!(agl::Vec<float, 3>{(int)(player.pos.x + .3), (int)player.pos.y, (int)(player.pos.z + .3)} == player.pos))
 	{
 		int x = player.pos.x + 0.3;
 		int z = player.pos.z + 0.3;
@@ -511,6 +577,190 @@ void correctPositionY(Player &player, World &world)
 	}
 }
 
+void correctPositionX(Player &player, World &world)
+{
+	// +X
+	{
+		int x = player.pos.x + 0.3;
+
+		if (x != int(player.pos.x))
+		{
+			for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+			{
+				for(int z = player.pos.z - 0.3; z < player.pos.z + 0.3; z++)
+				{
+					if (world.getAtPos({x, y, z}))
+					{
+						player.vel.x = 0;
+						player.pos.x = x - .3;
+					}
+					break;
+				}
+			}
+		}
+	}
+	// -X
+	{
+		int x = player.pos.x - 0.3;
+		int z = player.pos.z;
+
+		if (x != int(player.pos.x))
+		{
+			for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+			{
+				for(int z = player.pos.z - 0.3; z < player.pos.z + 0.3; z++)
+				{
+					if (world.getAtPos({x, y, z}))
+					{
+						player.vel.x = 0;
+						player.pos.x = x + 1.3;
+					}
+					break;
+				}
+			}
+		}
+	}
+}
+
+void correctPositionZ(Player &player, World &world)
+{
+	// +Z
+	{
+		int z = player.pos.z + 0.3;
+
+		if (z != int(player.pos.z))
+		{
+			for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+			{
+				for(int x = player.pos.x - 0.3; x < player.pos.x + 0.3; x++)
+				{
+					if (world.getAtPos({x, y, z}))
+					{
+						player.vel.z = 0;
+						player.pos.z = z - .3;
+					}
+					break;
+				}
+			}
+		}
+	}
+	// -Z
+	{
+		int x = player.pos.x;
+		int z = player.pos.z - 0.3;
+
+		if (z != int(player.pos.z))
+		{
+			for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+			{
+				for(int x = player.pos.x - 0.3; x < player.pos.x + 0.3; x++)
+				{
+					if (world.getAtPos({x, y, z}))
+					{
+						player.vel.z = 0;
+						player.pos.z = z + 1.3;
+					}
+					break;
+				}
+			}
+		}
+	}
+}
+
+void correctPositionDiagonal(Player &player, World &world)
+{
+	// diagonal
+
+	if (!(agl::Vec<float, 3>{int(player.pos.x - .3), (int)player.pos.y, int(player.pos.z - .3)} == player.pos))
+	{
+		int x = player.pos.x - 0.3;
+		int z = player.pos.z - 0.3;
+
+		for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+		{
+			if (world.getAtPos({x, y, z}))
+			{
+				if (fabs(player.pos.x - x) < fabs(player.pos.z - z))
+				{
+					player.vel.x = 0;
+					player.pos.x = x + 1.3;
+				}
+				else
+				{
+					player.vel.z = 0;
+					player.pos.z = z + 1.3;
+				}
+			}
+		}
+	}
+	if (!(agl::Vec<float, 3>{int(player.pos.x + 0.3), (int)player.pos.y, int(player.pos.z - .3)} == player.pos))
+	{
+		int x = player.pos.x + 0.3;
+		int z = player.pos.z - 0.3;
+
+		for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+		{
+			if (world.getAtPos({x, y, z}))
+			{
+				if (fabs(player.pos.x - x) < fabs(player.pos.z - z))
+				{
+					player.vel.x = 0;
+					player.pos.x = x - 0.3;
+				}
+				else
+				{
+					player.vel.z = 0;
+					player.pos.z = z + 1.3;
+				}
+			}
+		}
+	}
+	if (!(agl::Vec<float, 3>{int(player.pos.x - .3), (int)player.pos.y, (int)(player.pos.z + .3)} == player.pos))
+	{
+		int x = player.pos.x - 0.3;
+		int z = player.pos.z + 0.3;
+
+		for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+		{
+			if (world.getAtPos({x, y, z}))
+			{
+				if (fabs(player.pos.x - x) < fabs(player.pos.z - z))
+				{
+					player.vel.x = 0;
+					player.pos.x = x + 1.3;
+				}
+				else
+				{
+					player.vel.z = 0;
+					player.pos.z = z - 0.3;
+				}
+			}
+		}
+	}
+	if (!(agl::Vec<float, 3>{(int)(player.pos.x + .3), (int)player.pos.y, (int)(player.pos.z + .3)} == player.pos))
+	{
+		int x = player.pos.x + 0.3;
+		int z = player.pos.z + 0.3;
+
+		for (int y = player.pos.y; y < player.pos.y + 1.8; y++)
+		{
+			if (world.getAtPos({x, y, z}))
+			{
+				if (fabs(player.pos.x - x) < fabs(player.pos.z - z))
+				{
+					player.vel.x = 0;
+					player.pos.x = x - 0.3;
+				}
+				else
+				{
+					player.vel.z = 0;
+					player.pos.z = z - 0.3;
+				}
+			}
+		}
+	}
+}
+
 void movePlayer(Player &player, agl::Vec<float, 3> acc, World &world)
 {
 	player.vel.y *= 0.98;
@@ -544,9 +794,14 @@ void movePlayer(Player &player, agl::Vec<float, 3> acc, World &world)
 	correctPositionY(player, world);
 
 	player.pos.x += player.vel.x;
+	
+	correctPositionX(player, world);
+
 	player.pos.z += player.vel.z;
 
-	correctPositionXZ(player, world);
+	correctPositionZ(player, world);
+
+	correctPositionDiagonal(player, world);
 }
 
 void updateSelected(Player &player, agl::Vec<int, 3> &selected, agl::Vec<int, 3> &front, World &world)
@@ -698,9 +953,14 @@ int main()
 		{1, 1, 0, 1}
 	};
 
+	std::vector<glm::vec4> uvSphereData;
+	genSphereVertices(uvSphereData, 20, 20);
+
 	Buffer triangleBuffer = instance.createBufferWrite(unitSquareData, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
 	Buffer unitSquareBuffer = instance.createBufferWrite(unitSquareData, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+
+	Buffer sphereBuffer = instance.createBufferWrite(uvSphereData, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 
 	/*ax::Program blockShader(ax::Shader("./shader/blockVert.glsl", GL_VERTEX_SHADER),*/
 	/*						ax::Shader("./shader/blockFrag.glsl", GL_FRAGMENT_SHADER));*/
@@ -730,6 +990,8 @@ int main()
 	Pipeline skyShaderPipeline = instance.createGraphicsPipeline("./shader/skyVert.spv", "./shader/skyFrag.spv", {skyShaderVertex.layout, skyShaderTransform.layout, skyShaderData.layout}, window.renderPass);
 
 	Descriptor skyShaderVertexDescriptor = genericDescriptorPool.createDescriptor(skyShaderVertex, &unitSquareBuffer, nullptr, nullptr);
+
+	Descriptor skyShaderUVSphere = genericDescriptorPool.createDescriptor(skyShaderVertex, &sphereBuffer, nullptr, nullptr);
 
 	struct {
 		glm::mat4 transform;
@@ -770,7 +1032,7 @@ int main()
 	tintTextureFoliage.load("./resources/java/assets/minecraft/textures/colormap/foliage.png");
 
 	std::vector<Block>		   blockDefs;
-	std::map<std::string, int> blockNameToDef;
+	std::map<std::string, unsigned int> blockNameToDef;
 	std::vector<std::string>   blockList;
 
 	/*agl::Texture blank;*/
@@ -863,6 +1125,11 @@ int main()
 
 	WorldMesh wm(world, blockDefs);
 
+	world.blockNameToDef = &blockNameToDef;
+	std::cout << "start" << '\n';
+	world.createChunk({0, 0, 0});
+	std::cout << "end" << '\n';
+
 	bool closeThread = false;
 
 	std::thread *thread = new std::thread(buildThread, std::ref(wm), std::ref(closeThread));
@@ -932,8 +1199,14 @@ int main()
 
 	bool windowFocus = true;
 
+	auto lastFrameTime = std::chrono::system_clock::now();
 	while (!window.shouldClose())
 	{
+		{
+			std::this_thread::sleep_until(lastFrameTime + std::chrono::milliseconds(1000 / 60));
+			lastFrameTime = std::chrono::system_clock::now();
+		}
+
 		{
 			/*int	   revert = 0;*/
 			/*Window win;*/
@@ -960,7 +1233,7 @@ int main()
 
 		/*{*/
 			{
-				transformData.transform = glm::translate(glm::mat4(1), {-1, -1, 0.999}) * glm::scale(glm::mat4(1), {2, 2, 1});
+				transformData.transform = glm::perspectiveRH_ZO<float>(PI / 2, (float)windowSize.x / windowSize.y, 0.1, 10000) * glm::rotate(glm::mat4(1), -player.rot.x, {1, 0, 0}) * glm::scale(glm::mat4(1), {1000, 1000, 1000});
 
 				shaderData.time = currentFrame;
 				shaderData.rotx = player.rot.x;
@@ -969,7 +1242,7 @@ int main()
 				transformBuffer.singleCopy(&transformData);
 				shaderBuffer.singleCopy(&shaderData);
 
-				window.draw(6, {skyShaderVertexDescriptor, transformDesc, shaderDesc}, skyShaderPipeline);
+				window.draw(uvSphereData.size(), {skyShaderUVSphere, transformDesc, shaderDesc}, skyShaderPipeline);
 			}
 
 			{
@@ -1091,10 +1364,25 @@ int main()
 		/**/
 		/*glEnable(GL_DEPTH_TEST);*/
 
+			ImGui::Begin("Log");
+		
+			Log::iterate([](auto&e){
+				ImGui::Text("%s", std::format("[{}] - {}", e.time, e.data).c_str());
+					});
+
+			ImGui::End();
+
 		window.endDraw();
 
 		static int frame = 0;
 		frame++;
+
+		if(!glfwGetKey(window.window, GLFW_KEY_ESCAPE))
+		{
+			windowFocus = true;
+		} else {
+			windowFocus = false;
+		}
 
 		if (gamestate == GameState::RUNNING)
 		{
@@ -1250,7 +1538,7 @@ int main()
 				lclis.update(glfwGetMouseButton(window.window, GLFW_MOUSE_BUTTON_LEFT));
 				rclis.update(glfwGetMouseButton(window.window, GLFW_MOUSE_BUTTON_RIGHT));
 
-				if (rclis.ls == ListenState::First && !(front == player.pos))
+				if (rclis.ls == ListenState::First && !(front == agl::Vec<int, 3>{player.pos}))
 				{
 					world.setBlock(front, BlockData{(unsigned int)player.pallete[player.currentPallete]});
 
