@@ -1358,17 +1358,17 @@ int main()
 		/**/
 		/*glEnable(GL_DEPTH_TEST);*/
 
-			ImGui::Begin("Player Info");
-			ImGui::Text("%s", std::format("position : {} {} {}", player.pos.x, player.pos.y, player.pos.z).c_str());
-			ImGui::End();
-
-			ImGui::Begin("Log");
-		
-			Log::iterate([](auto&e){
-				ImGui::Text("%s", std::format("[{}] - {}", e.time, e.data).c_str());
-					});
-
-			ImGui::End();
+			/*ImGui::Begin("Player Info");*/
+			/*ImGui::Text("%s", std::format("position : {} {} {}", player.pos.x, player.pos.y, player.pos.z).c_str());*/
+			/*ImGui::End();*/
+			/**/
+			/*ImGui::Begin("Log");*/
+			/**/
+			/*Log::iterate([](auto&e){*/
+			/*	ImGui::Text("%s", std::format("[{}] - {}", e.time, e.data).c_str());*/
+			/*		});*/
+			/**/
+			/*ImGui::End();*/
 
 		window.endDraw();
 

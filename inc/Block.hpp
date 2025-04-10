@@ -682,6 +682,11 @@ class Block
 			{
 				elements.emplace_back(val, texHash, atlas.size, tintGrass, tintFoliage, name, solid);
 			}
+
+			if(name.find("leaves") != name.npos || name.find("glass") != name.npos)
+			{
+				solid = false;
+			}
 		}
 
 		~Block()

@@ -85,6 +85,4 @@ lib/Mat4f.hpp
 *.spv
 bin/imgui.ini
 lib/Mat.hpp
-bin/worlds/plains
-bin/worlds/river
-lib/enkiMI
+bin/worlds/*

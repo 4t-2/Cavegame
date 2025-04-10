@@ -297,7 +297,7 @@ void World::createChunk(agl::Vec<int, 3> chunkPos)
 
 		/*Log::addLog(std::format("{} {} {}", chunkPos.x, chunkPos.y, chunkPos.z));*/
 
-		FILE *fp = fopen(std::string("./worlds/river/region/r."+xstr+"."+ystr+".mca").c_str(), "rb");
+		FILE *fp = fopen(std::string("./worlds/bigplains/region/r."+xstr+"."+ystr+".mca").c_str(), "rb");
 		if (!fp)
 		{
 			Log::addLog(std::format("region {} {} not found!", xstr, ystr));

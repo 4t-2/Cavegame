@@ -37,10 +37,12 @@ struct ChunkMesh
 		Descriptor desc;
 		bool			 baked	= false;
 		bool			 update = false;
+		Buffer blockMapBuffer;
 
 		std::vector<float> posBuffer;
 		std::vector<float> UVBuffer;
 		std::vector<float> lightBuffer;
+		std::vector<unsigned int> blockMapData;
 
 		struct TempThing
 		{
@@ -56,6 +58,7 @@ struct ChunkMesh
 		~ChunkMesh()
 		{
 			mesh.destroy();
+			/*blockMapBuffer.destroy();*/
 		}
 
 		void draw(Window &w, Instance &instance, DescriptorLayout &layout, DescriptorPool &pool, Descriptor &mvp, Descriptor &image, Pipeline &pipeline)
